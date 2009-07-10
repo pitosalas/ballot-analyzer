@@ -1,7 +1,0 @@
---- 
-:system: :premier
-:in_file_info: /Volumes/ExternalHD2/Ballots/Leon/AB946-7/125129-2.TIF
-:out_file_format: :yaml
-:out_file_info: result/
-:run_dpi: 150
-:in_file_processing: :single
