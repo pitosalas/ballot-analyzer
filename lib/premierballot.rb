@@ -2,8 +2,6 @@ include IaDsl
 
 class PremierBallot
   
-  attr_reader :raw_barcode, :raw_marked_votes
-  
 # There are a ton of little parameters that can be adjusted to control the details of the analysis
 # of a ballot. They are determined empirically by trial and error. Once we figure them out there's 
 # no reason to ever change them unless the ballot layouts change.
@@ -32,19 +30,72 @@ class PremierBallot
   Morph_iter_left_timing_band = 3
   Morph_iter_top_timing_band = 3
   Morph_iter_barcode = 4
-
-# How skewed does the image have to be to require a rotate (which is very expensive)
-  Min_degree_requiring_deskew = 0.15
     
-# Default DPI that image is converted to before processing
-  Target_DPI_default = 300
-  
 # Sanity Checks
   Top_timings_mark_count = 34
   Left_timing_marks_count = 53
   
-  def initialize t_dpi=Target_DPI_default
-    @target_dpi = t_dpi
+#
+# Defaults for values coming in via params
+#
+  Target_DPI_default = 300    # Default DPI that image is converted to before processing
+  Logging_default = :off      # Default logging level (duh)
+  Forensics_default = :off    #
+  Max_skew_default = 0.15 # How skewed does the image have to be to require a rotate (which is very expensive)
+    
+#
+# Initialize the instance with the parameters desired for the overall run
+#     Val_params says what the expected Keys and values are in the params argument  
+#     params is the input argument with the paramteters for the run
+#     res_hash is a hash that will be filled in with expected results. Caller will supply an array to
+#             which a hash with result of this run will be added.
+Val_params = {
+  :target_dpi => Fixnum,
+  :logging => Symbol,
+  :forensics => Symbol,
+  :max_skew => Float
+}
+
+  def initialize(inparams, outlist)
+  # create a new @result hash to receive results from this run, and append it to the supplied list
+    @result = Hash.new
+    outlist << @result
+    
+    raise "PremierBallot invalid params" unless !inparams.nil? && valid_params?(inparams, Val_params)
+    @target_dpi = inparams[:target_dpi] || Target_DPI_default
+    @logging = inparams[:logging] || Logging_default
+    @forensics = inparams[:forensics] || Forensics_default
+    @max_skew = inparams[:max_skew] || Max_skew_default
+
+    @raw_barcode = []
+    @raw_marked_votes = []
+  end
+  
+#
+# Trivial place holder logging
+#  
+  def log(string)
+    if @logging == :on
+      puts string
+    end
+  end
+  
+#
+# Validate params structure.
+#
+  def valid_params? params, val_params
+    return false unless params.class == Hash
+    params.each_pair do |key, val|
+      expected_type = val_params[key]
+      if expected_type.nil? 
+        puts "Invalid key in params: #{key}"
+        return false
+      elsif val.class != expected_type
+        puts "Unexpected value in params: #{key} => #{val}. Expected #{expected_type}, found #{val.class}"
+        return false
+      end
+    end
+    true
   end
     
 #
@@ -53,29 +104,21 @@ class PremierBallot
   def g(inches)
     (inches * @target_dpi).to_i
   end
-  
-  def diags setting
-    IaDsl::diagnostics setting
-  end
-  
+
   def file_to_process= fname
-    reset_per_ballot_state
     @filename = fname
-  end
-  
-  def reset_per_ballot_state
-    @raw_barcode = []
-    @raw_marked_votes = []
+    @result[:filename] = fname
   end
   
   def file_to_process
     @filename
   end
-
+  
+#
+# Main Image Processing algorithm for Premier Ballots. Here's all the meat.
+#
   def process_one
-    m_trace "Premier Ballot."
-    m_trace "  Processing #{@filename}"
-    m_trace "  Target DPI=#{@target_dpi}"
+    log "Premier Ballot: Processing #{@filename}, Target DPI=#{@target_dpi}"
     open_image :ballot, @filename, @target_dpi
     binarize :ballot
     d_write_image :ballot
@@ -102,8 +145,6 @@ class PremierBallot
     nonwhite = find_last_row :white, :ballot
     crop_top_rows :ballot, nonwhite, :cropped
     d_write_image :cropped
-
-debugger
 
   # Slice away the approximate area of the timing marks along the left. Then clean them up with a morphological_open
     slice_column :cropped, g(Col1st_left_timing_band), g(Collast_left_timing_band), :left_timing_marks
@@ -148,16 +189,20 @@ debugger
     find_black_segments :rows, :img_last_mark, black_segs, g(Minimum_width_left_timing_mark)
     x_bottom = black_segs[0][1]
 
-    m_trace "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
+    log "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
 
   # Now see if deksewing is necessary by computing the relative positions
     tangent = (x_bottom.to_f - x_top.to_f) / (y_bottom.to_f - y_top.to_f)
     atan = Math::atan2( x_bottom - x_top, y_bottom - y_top) * 360.0 / (2.0 * Math::PI)
-    m_trace "[rotate degree = #{atan}]"
-    if atan.abs > Min_degree_requiring_deskew
+    if @forensics == :on
+      @result[:skew_angle] = atan 
+    end
+    if atan.abs > @max_skew
       rotate :cropped, atan
       d_write_image :cropped
-      puts "[rotate degree = #{atan}]"
+      if (@forensics == :on)
+        @result[:rotated] = atan 
+      end
     end
   
   # Grab the rows corresponding to the top timing marks and clean it up
@@ -235,5 +280,11 @@ debugger
         end
       end
     end  
+
+# 
+# Store the result in the output list.
+#
+    @result[:raw_barcode] = @raw_barcode
+    @result[:raw_marked_votes] = @raw_marked_votes
   end
 end
