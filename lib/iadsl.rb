@@ -1,18 +1,47 @@
+=begin
+  * Name: Ballot-analyzer
+  * Description: Analyze voting ballots
+  * Author: Pito Salas
+  * Copyright: (c) R. Pito Salas and Associates, Inc.
+  * Date: January 2009
+  * License: GPL
+
+  This file is part of GovSDK.
+
+  GovSDK is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  GovSDK is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GovSDK.  If not, see <http://www.gnu.org/licenses/>.
+
+  require "ruby-debug"
+  Debugger.settings[:autolist] = 1 # list nearby lines on stop
+  Debugger.settings[:autoeval] = 1
+  Debugger.start
+=end
+
 require 'rubygems'
 require 'RMagick'
 include Magick
 
-module IaDsl
+class IaDsl
   
 # Some convenient constants
   White = QuantumRange   # QuantumRange is white when it occurs as the intensity value in a B&W image
   Black = 0
   
-  def IaDsl.init
-    @@var_table = Hash.new
-    @@profiling = false
-    @@tracing = false
-    @@prof_data = Hash.new
+  def initialize
+    @var_table = Hash.new
+    @profiling = false
+    @tracing = false
+    @prof_data = Hash.new
   end
 
 #
@@ -21,15 +50,15 @@ module IaDsl
   def diagnostics command
     if command == :profile
       puts "++ Profiling Started\n\n"
-      @@profiling = true
+      @profiling = true
     elsif command == :end
       generate_profiling_report
-      @@profiling = false
-      @@tracing = false
+      @profiling = false
+      @tracing = false
     elsif command == :generate
-      generate_profiling_report if @@profiling
+      generate_profiling_report if @profiling
     elsif command == :trace
-      @@tracing = true
+      @tracing = true
     end
   end
 
@@ -37,9 +66,9 @@ module IaDsl
 # Print variable and internal status
 #   
   def print var_name
-    v = @@var_table[var_name]
+    v = @var_table[var_name]
     if v.class == Array
-      puts "Array: #{v.length}: #{@@var_table[var_name].inspect}"
+      puts "Array: #{v.length}: #{@var_table[var_name].inspect}"
     elsif v.class == Fixnum
       puts "Integer: #{v}"
     elsif v.nil?
@@ -178,7 +207,7 @@ module IaDsl
   def binarize id
     m_begin "binarize"
     put_image(id, get_image(id).bilevel_channel(QuantumRange/2))
-#   put_image(id, @@var_table[id].quantize(2, GRAYColorspace, NoDitherMethod) )
+#   put_image(id, @var_table[id].quantize(2, GRAYColorspace, NoDitherMethod) )
     m_end "binarize"
   end
   
@@ -365,7 +394,7 @@ module IaDsl
       end
       zonecolor = colr
     end
-    @@var_table[outarray] = result
+    @var_table[outarray] = result
     m_end "find_w2b_transitions"
   end        
 
@@ -553,7 +582,7 @@ module IaDsl
 # Don't use! This 'leaks' out the image data structure from Imagick.
 #
   def get_image(id)
-    val = @@var_table[id]
+    val = @var_table[id]
     raise "not an image" if val.nil?
     val
   end
@@ -590,30 +619,30 @@ module IaDsl
    end
 
    def profiling?
-     @@profiling
+     @profiling
    end
 
    def m_begin name
-     puts ">> Entering #{name}" if @@tracing
+     puts ">> Entering #{name}" if @tracing
      m_begin_noprint name
    end
    
    def m_begin_noprint name
      return unless profiling?
-     @@prof_data[name] = ProfInfo.new if @@prof_data[name] == nil
-     prof = @@prof_data[name]
+     @prof_data[name] = ProfInfo.new if @prof_data[name] == nil
+     prof = @prof_data[name]
      prof.calls_count += 1
      prof.timer_start = Time.now
    end
    
    def m_end name
-     puts "<< Leaving #{name}" if @@tracing
+     puts "<< Leaving #{name}" if @tracing
      m_end_noprint name
    end
      
    def m_end_noprint name
      return unless profiling?
-     prof = @@prof_data[name]
+     prof = @prof_data[name]
      raise "m_end without corresponding m_begin: #{name}" if prof.nil?
      prof.cumulative_time += Time.now - prof.timer_start
    end
@@ -621,17 +650,17 @@ module IaDsl
    def generate_profiling_report
      return unless profiling?
      puts "\n+++ Profiling:"
-     @@prof_data.each do |key, value|
+     @prof_data.each do |key, value|
        printf "%25s   (%dx)   avg: %1.3f sec\n", key, value.calls_count, value.cumulative_time/value.calls_count
      end
    end
    
    def m_trace arg
-     puts arg if @@tracing
+     puts arg if @tracing
    end
    
    def d_write_image id, filename=nil
-     write_image id, filename if @@tracing
+     write_image id, filename if @tracing
    end
        
 #
@@ -640,7 +669,7 @@ module IaDsl
   def get_fixnum(id)
     return id if id.class == Fixnum
 
-    val = @@var_table[id]
+    val = @var_table[id]
     raise "not a fixnum" unless val.class == Fixnum
     val
   end
@@ -650,15 +679,11 @@ module IaDsl
   end
   
   def set_variable(id, val)
-    old_value = @@var_table[id]
-    if !@@var_table[id].nil? && @@var_table[id].class == Image && old_value != val
+    old_value = @var_table[id]
+    if !@var_table[id].nil? && @var_table[id].class == Image && old_value != val
       old_value.destroy!
     end
-    @@var_table[id] = val
+    @var_table[id] = val
   end
 
 end
-
-# Initialize stuff when someone 'include "adsk.rb" '
-include IaDsl
-IaDsl.init

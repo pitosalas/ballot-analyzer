@@ -1,6 +1,34 @@
-include IaDsl
+=begin
+  * Name: Ballot-analyzer
+  * Description: Analyze voting ballots
+  * Author: Pito Salas
+  * Copyright: (c) R. Pito Salas and Associates, Inc.
+  * Date: January 2009
+  * License: GPL
 
-class PremierBallot
+  This file is part of GovSDK.
+
+  GovSDK is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  GovSDK is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GovSDK.  If not, see <http://www.gnu.org/licenses/>.
+
+  require "ruby-debug"
+  Debugger.settings[:autolist] = 1 # list nearby lines on stop
+  Debugger.settings[:autoeval] = 1
+  Debugger.start
+
+=end
+
+class PremierBallot < IaDsl
   
 # There are a ton of little parameters that can be adjusted to control the details of the analysis
 # of a ballot. They are determined empirically by trial and error. Once we figure them out there's 
@@ -57,6 +85,8 @@ Val_params = {
 }
 
   def initialize(inparams, outlist)
+    super()
+
   # create a new @result hash to receive results from this run, and append it to the supplied list
     @result = Hash.new
     outlist << @result
@@ -105,19 +135,13 @@ Val_params = {
     (inches * @target_dpi).to_i
   end
 
-  def file_to_process= fname
-    @filename = fname
-    @result[:filename] = fname
-  end
-  
-  def file_to_process
-    @filename
-  end
-  
 #
 # Main Image Processing algorithm for Premier Ballots. Here's all the meat.
 #
-  def process_one
+  def process_file fname
+    @filename = fname
+    @result[:filename] = fname
+    
     log "Premier Ballot: Processing #{@filename}, Target DPI=#{@target_dpi}"
     open_image :ballot, @filename, @target_dpi
     binarize :ballot
