@@ -69,7 +69,8 @@ class PremierBallot < IaDsl
   Target_DPI_default = 300    # Default DPI that image is converted to before processing
   Logging_default = :off      # Default logging level (duh)
   Forensics_default = :off    #
-  Max_skew_default = 0.15 # How skewed does the image have to be to require a rotate (which is very expensive)
+  Max_skew_default = 0.15     # How skewed does the image have to be to require a rotate (which is very expensive)
+  Debugging_default = :off    # Save intermediate files (very big and slow)
     
 #
 # Initialize the instance with the parameters desired for the overall run
@@ -81,35 +82,32 @@ Val_params = {
   :target_dpi => Fixnum,
   :logging => Symbol,
   :forensics => Symbol,
-  :max_skew => Float
+  :max_skew => Float,
+  :dir_style => Symbol,
+  :path => String,
+  :debugging => Symbol
 }
 
   def initialize(inparams, outlist)
     super()
-
-  # create a new @result hash to receive results from this run, and append it to the supplied list
-    @result = Hash.new
-    outlist << @result
     
     raise "PremierBallot invalid params" unless !inparams.nil? && valid_params?(inparams, Val_params)
     @target_dpi = inparams[:target_dpi] || Target_DPI_default
     @logging = inparams[:logging] || Logging_default
     @forensics = inparams[:forensics] || Forensics_default
     @max_skew = inparams[:max_skew] || Max_skew_default
+    @debugging = inparams[:debugging] || Debugging_default
 
     @raw_barcode = []
     @raw_marked_votes = []
+    @array_of_results = outlist
+    @params = inparams
+    @logger = Logger.new(STDERR)
+    
+    diagnostics :trace if @debugging == :on
   end
   
-#
-# Trivial place holder logging
-#  
-  def log(string)
-    if @logging == :on
-      puts string
-    end
-  end
-  
+
 #
 # Validate params structure.
 #
@@ -134,15 +132,60 @@ Val_params = {
   def g(inches)
     (inches * @target_dpi).to_i
   end
+  
+#
+# Compute binary value of barcode from on and off bars
+#
+  def compute_barcode(barcode_vect)
+    barcode_vect.inject {|m, v| m+2 ** v}
+  end
 
+#
+# Given a barcode value, extract the bits that (we think) mean the ballot style
+#
+  def bitfield(from,to,val)
+   return ( val>>from ) & ( (2 << (to - from) ) - 1)
+  end
+  
+#
+# Given scanned analysis of barcode, deduce the ballot style
+#
+  def deduce_ballot_style(barcode_vect)
+    barcode_value = compute_barcode(barcode_vect)
+    bitfield(15, 18, barcode_value)
+  end
+  
+  
+#
+# driver: Process a two level directory structure
+#
+  def process_2level_directory_structure
+    raise "Invalid dir_style parameter" unless @params[:dir_style] == :two_level
+    @dir_walker = DirectoryWalker.new
+    @dir_walker.walk_2level_path @params[:path] do |file|
+      @result = Hash.new
+      @array_of_results << @result
+      process_single_file file
+    end      
+  end
+  
+
+#
+# driver: Process a single file, specified in parameter
+#
+  def process_single_file fname
+    @result = Hash.new
+    @array_of_results << @result
+    @result[:filename] = fname
+    @filename = fname
+    analyze_ballot_image
+  end
 #
 # Main Image Processing algorithm for Premier Ballots. Here's all the meat.
 #
-  def process_file fname
-    @filename = fname
-    @result[:filename] = fname
-    
-    log "Premier Ballot: Processing #{@filename}, Target DPI=#{@target_dpi}"
+  def analyze_ballot_image
+  
+    @logger.info "Premier Ballot: Processing #{@filename}, Target DPI=#{@target_dpi}"
     open_image :ballot, @filename, @target_dpi
     binarize :ballot
     d_write_image :ballot
@@ -213,7 +256,7 @@ Val_params = {
     find_black_segments :rows, :img_last_mark, black_segs, g(Minimum_width_left_timing_mark)
     x_bottom = black_segs[0][1]
 
-    log "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
+    @logger.info "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
 
   # Now see if deksewing is necessary by computing the relative positions
     tangent = (x_bottom.to_f - x_top.to_f) / (y_bottom.to_f - y_top.to_f)
@@ -303,12 +346,17 @@ Val_params = {
           @raw_marked_votes << [row, col]
         end
       end
-    end  
+    end
 
+    @ballot_style = deduce_ballot_style(@raw_barcode)
 # 
 # Store the result in the output list.
 #
+    def @raw_barcode.to_yaml_style; :inline; end
+    def @raw_marked_votes.to_yaml_style; :inline; end
+    
     @result[:raw_barcode] = @raw_barcode
     @result[:raw_marked_votes] = @raw_marked_votes
+    @result[:ballot_style] = @ballot_style
   end
 end

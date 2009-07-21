@@ -18,11 +18,11 @@ if ruby_profile
   RubyProf.start
 end
 
-class Array
-  def to_yaml_style; :inline; end
-end
-
-inparams = {:forensics => :on, :logging => :on, :target_dpi => 72, :max_skew => 0.15}
+inparams = {:forensics => :on, 
+            :logging => :on,
+            :debugging => :on,
+            :target_dpi => 150,
+            :max_skew => 0.15}
 outparams = []
 
 prem_ballot = PremierBallot.new inparams, outparams
@@ -32,8 +32,8 @@ prem_ballot = PremierBallot.new inparams, outparams
 #prem_ballot.file_to_process = "weird.tif"
 #prem_ballot.file_to_process = "/Volumes/ExternalHD2/Ballots/Humboldt/00/01/000121.jpg"
 #prem_ballot.file_to_process = "/Volumes/ExternalHD2/Ballots/Leon/AB946-7/125129-2.TIF"
-
-prem_ballot.process_file "/Volumes/ExternalHD2/Ballots/Humboldt/00/01/000100.jpg"
+prem_ballot.process_single_file "/mydev/ballot-analyzer/test/images/twolevel/one/125119-2.TIF"
+#prem_ballot.process_single_file "/Volumes/ExternalHD2/Ballots/Humboldt/00/01/000100.jpg"
 
 puts outparams.to_yaml
 

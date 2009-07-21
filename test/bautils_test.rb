@@ -29,27 +29,16 @@
 
 require File.dirname(__FILE__) + '/test_helper'
 
-class PremierBallotTest < Test::Unit::TestCase
-  context "If should is properly setup then" do
+class DirectoryWalkerTest < Test::Unit::TestCase
+  context "A DirectoryWalker" do
     setup do
-      @inparams = {:forensics => :on, :logging => :on, :target_dpi => 72, :max_skew => 0.15}
-      @outparams = []
-      @pb = PremierBallot.new @inparams, @outparams
+      @w1 = DirectoryWalker.new
     end
 
-    should "succeed" do
-      assert_equal 1,1
-    end
-    
-    context "the test parameter validator" do
-      setup do
-        @par1 = {:key => 1, :string => "a"}
-        @checkpar = {:key => Fixnum, :string => String }
-      end
-      
-      should "accept simple valid param" do
-        assert_equal true, @pb.valid_params?(@par1, @checkpar)
-      end        
+    should "Walk its own directory" do
+      @w1.walk_2level_path "." do |file|
+        puts "called #{file}"
+      end      
     end
   end
 end

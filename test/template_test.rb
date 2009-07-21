@@ -29,27 +29,13 @@
 
 require File.dirname(__FILE__) + '/test_helper'
 
-class PremierBallotTest < Test::Unit::TestCase
+class StructureWalkerTest < Test::Unit::TestCase
   context "If should is properly setup then" do
     setup do
-      @inparams = {:forensics => :on, :logging => :on, :target_dpi => 72, :max_skew => 0.15}
-      @outparams = []
-      @pb = PremierBallot.new @inparams, @outparams
     end
 
     should "succeed" do
       assert_equal 1,1
-    end
-    
-    context "the test parameter validator" do
-      setup do
-        @par1 = {:key => 1, :string => "a"}
-        @checkpar = {:key => Fixnum, :string => String }
-      end
-      
-      should "accept simple valid param" do
-        assert_equal true, @pb.valid_params?(@par1, @checkpar)
-      end        
     end
   end
 end

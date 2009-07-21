@@ -27,29 +27,32 @@
   Debugger.start
 =end
 
-require File.dirname(__FILE__) + '/test_helper'
+require 'lib/iadsl.rb'
+require 'lib/premierballot.rb'
+require 'lib/bautils'
+require 'yaml'
+require 'logger'
 
-class PremierBallotTest < Test::Unit::TestCase
-  context "If should is properly setup then" do
-    setup do
-      @inparams = {:forensics => :on, :logging => :on, :target_dpi => 72, :max_skew => 0.15}
-      @outparams = []
-      @pb = PremierBallot.new @inparams, @outparams
-    end
+inparams = {:forensics => :on, 
+            :logging => :on, 
+            :target_dpi => 150,
+            :max_skew => 0.15,
+            :dir_style => :two_level,
+            :path => "/mydev/ballot-analyzer/test/images/twolevel/"}
 
-    should "succeed" do
-      assert_equal 1,1
-    end
-    
-    context "the test parameter validator" do
-      setup do
-        @par1 = {:key => 1, :string => "a"}
-        @checkpar = {:key => Fixnum, :string => String }
-      end
-      
-      should "accept simple valid param" do
-        assert_equal true, @pb.valid_params?(@par1, @checkpar)
-      end        
-    end
-  end
-end
+outparams = []
+
+prem_ballot = PremierBallot.new inparams, outparams
+
+prem_ballot.process_2level_directory_structure
+
+puts outparams.to_yaml
+
+
+
+
+
+
+
+
+
