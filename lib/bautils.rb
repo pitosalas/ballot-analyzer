@@ -42,23 +42,21 @@ class DirectoryWalker
         next if l1_name[0] == 46                 # skip . and ..
         l2_path = Pathname.new(l1_path) + l1_name
         if l2_path.directory?
-          @logger.warn "Processing directory #{l2_path}..."
+          @logger.info "Processing directory #{l2_path}..."
           Dir.foreach(l2_path) do |l2_name|
             begin
               next if l2_name[0] == 46             # skip . and ..
               current_file = Pathname(l2_path) + l2_name
               yield current_file
             rescue => err
-              @logger.error("Error working on #{current_file}: #{err}")
-              @logger.error(err.backtrace.join("\n"))
+              @logger.error("processing #{current_file}: #{err}, #{err.backtrace[0]}")
             end
           end
         else
           @logger.warn("Skipping #{l2_path}")
         end
       rescue => err
-        @logger.error("Error working on #{l1_path}: #{err}")
-        @logger.error(err.backtrace.join("\n"))
+        @logger.error("processing #{l1_path}: #{err}, #{err.backtrace[0]}")
       end
     end
   end    

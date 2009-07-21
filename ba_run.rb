@@ -28,24 +28,22 @@
 =end
 
 require 'lib/iadsl.rb'
-require 'lib/premierballot.rb'
+require 'lib/pbprocessor.rb'
+require 'lib/pbanalyzer.rb'
 require 'lib/bautils'
 require 'yaml'
 require 'logger'
 
 inparams = {:forensics => :on, 
             :logging => :on, 
-            :target_dpi => 150,
+            :target_dpi => 100,
             :max_skew => 0.15,
             :dir_style => :two_level,
             :path => "/mydev/ballot-analyzer/test/images/twolevel/"}
 
 outparams = []
-
-prem_ballot = PremierBallot.new inparams, outparams
-
-prem_ballot.process_2level_directory_structure
-
+processor = PbProcessor.new inparams, outparams
+processor.process_2level_directory_structure
 puts outparams.to_yaml
 
 
