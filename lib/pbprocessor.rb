@@ -123,6 +123,17 @@ Val_params = {
   end
   
 #
+# driver: Process a simple directory structure
+#
+  def process_directory
+    raise "invalid dir_style parameter" unless @params[:dir_style] == :simple
+    @dir_walker = DirectoryWalker.new
+    @dir_walker.walk_directory @params[:path] do |fname|
+      process_single_file fname
+    end
+  end
+  
+#
 # driver: Process a single file, specified in parameter
 #
   def process_single_file fname

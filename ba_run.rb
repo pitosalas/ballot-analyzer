@@ -26,31 +26,72 @@
   Debugger.settings[:autoeval] = 1
   Debugger.start
 =end
+require 'rubygems'
+require 'getoptlong'
+require 'yaml'
+require 'logger'
 
 require 'lib/iadsl.rb'
 require 'lib/pbprocessor.rb'
 require 'lib/pbanalyzer.rb'
 require 'lib/bautils'
-require 'yaml'
-require 'logger'
 
-inparams = {:forensics => :on, 
-            :logging => :on, 
-            :target_dpi => 100,
-            :max_skew => 0.15,
-            :dir_style => :two_level,
-            :path => "/mydev/ballot-analyzer/test/images/twolevel/"}
+# make sure that output to stdout goes right out and doesnt get collected and bufferred
+$stdout.sync = true
 
-outparams = []
-processor = PbProcessor.new inparams, outparams
-processor.process_2level_directory_structure
-puts outparams.to_yaml
+parser = GetoptLong.new
+parser.set_options(
+                   ["-h", "--help", GetoptLong::NO_ARGUMENT],
+["-t", "--test", GetoptLong::NO_ARGUMENT],
+["-v", "--version", GetoptLong::NO_ARGUMENT],
+["-d", "--directory", GetoptLong::REQUIRED_ARGUMENT ])
 
+action = false
+loop do
+  begin
+    opt, arg = parser.get
+    break if not opt
+    case opt
+      when "-h"
+      puts "Usage: ..."
+      action = :nothing
+      break
+      when "-t"
+      action = :test
+      break
+      when "-v"
+      puts "Version 0.0"
+      valid = :nothing
+      break
+      when "-d"
+      action = :run
+      @directory = arg
+    end
+  end
+end
 
+if action == :test 
+  puts "start"
+  i = 0
+  5.times do
+    puts "ballot #{i}"
+    delay = rand(5).to_i
+    sleep delay
+    i = i+1
+  end
+  puts "exit"
+end
 
-
-
-
-
-
-
+if action == :run
+  inparams = {:forensics => :on, 
+              :logging => :off, 
+              :target_dpi => 100,
+              :max_skew => 0.15,
+              :dir_style => :simple,
+              :path => @directory}
+  
+  outparams = []
+  processor = PbProcessor.new inparams, outparams
+  processor.process_directory
+  puts outparams.to_yaml
+end
