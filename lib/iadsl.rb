@@ -685,5 +685,5 @@ class IaDsl
     end
     @var_table[id] = val
   end
-
 end
+

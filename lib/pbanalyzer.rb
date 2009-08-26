@@ -65,7 +65,6 @@ class PbAnalyzer < IaDsl
   
   def initialize
     super()
-    @logger = Logger.new(STDERR)
   end
   
 #
@@ -78,10 +77,11 @@ class PbAnalyzer < IaDsl
 #
 # Main Image Processing algorithm for Premier Ballots. Here's all the meat.
 #
-  def analyze_ballot_image filename, target_dpi, forensics, max_skew, result
+  def analyze_ballot_image filename, target_dpi, max_skew, result, upstream
     @raw_barcode = []
     @raw_marked_votes = []
-    @logger.info "Premier Ballot: Processing #{filename}, Target DPI=#{target_dpi}"
+    @up = upstream
+    @up.info "Premier Ballot: Processing #{filename}, Target DPI=#{target_dpi}"
     @target_dpi = target_dpi
     open_image :ballot, filename, target_dpi
     binarize :ballot
@@ -153,20 +153,16 @@ class PbAnalyzer < IaDsl
     find_black_segments :rows, :img_last_mark, black_segs, g(Minimum_width_left_timing_mark)
     x_bottom = black_segs[0][1]
 
-    @logger.info "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
+    @up.info "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
 
   # Now see if deksewing is necessary by computing the relative positions
     tangent = (x_bottom.to_f - x_top.to_f) / (y_bottom.to_f - y_top.to_f)
     atan = Math::atan2( x_bottom - x_top, y_bottom - y_top) * 360.0 / (2.0 * Math::PI)
-    if forensics == :on
-      result[:skew_angle] = atan 
-    end
+    result[:skew_angle] = atan 
     if atan.abs > max_skew
       rotate :cropped, atan
       d_write_image :cropped
-      if (forensics == :on)
-        result[:rotated] = atan 
-      end
+      result[:rotated] = atan 
     end
 
   # Grab the rows corresponding to the top timing marks and clean it up

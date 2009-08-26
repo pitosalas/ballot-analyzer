@@ -34,10 +34,7 @@ class PbProcessor
 # Defaults for values coming in via params
 #
   Target_DPI_default = 300    # Default DPI that image is converted to before processing
-  Logging_default = :off      # Default logging level (duh)
-  Forensics_default = :off    #
   Max_skew_default = 0.15     # How skewed does the image have to be to require a rotate (which is very expensive)
-  Debugging_default = :off    # Save intermediate files (very big and slow)
     
 #
 # Initialize the instance with the parameters desired for the overall run
@@ -47,25 +44,20 @@ class PbProcessor
 #             which a hash with result of this run will be added.
 Val_params = {
   :target_dpi => Fixnum,
-  :logging => Symbol,
-  :forensics => Symbol,
+  :upstream => UpstreamReporter,
   :max_skew => Float,
   :dir_style => Symbol,
-  :path => String,
-  :debugging => Symbol
+  :path => String
 }
 
   def initialize(inparams, outlist)  
-    raise "PremierBallot invalid params" unless !inparams.nil? && valid_params?(inparams, Val_params)
+    raise "PremierBallot invalid params" unless ! inparams.nil? && valid_params?(inparams, Val_params)
     @target_dpi = inparams[:target_dpi] || Target_DPI_default
-    @logging = inparams[:logging] || Logging_default
-    @forensics = inparams[:forensics] || Forensics_default
     @max_skew = inparams[:max_skew] || Max_skew_default
-    @debugging = inparams[:debugging] || Debugging_default
+    @upstream = inparams[:upstream]
 
     @array_of_results = outlist
     @params = inparams
-    @logger = Logger.new(STDERR)
     
     diagnostics :trace if @debugging == :on
     @analyzer = PbAnalyzer.new
@@ -141,7 +133,13 @@ Val_params = {
     @array_of_results << @result
     @result[:filename] = fname
     @filename = fname
-    @analyzer.analyze_ballot_image fname, @target_dpi, @forensics, @max_skew, @result
-    @result[:ballot_style] = deduce_ballot_style(@result[:raw_barcode])
+    @upstream.stream("ballot #{fname}")
+    begin
+      @analyzer.analyze_ballot_image fname, @target_dpi, @max_skew, @result, @upstream
+      @result[:ballot_style] = deduce_ballot_style(@result[:raw_barcode])
+      @upstream.stream("success")
+    rescue
+      @upstream.stream("failure")
+    end
   end
 end

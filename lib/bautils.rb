@@ -35,10 +35,8 @@ require 'pathname'
 class DirectoryWalker
   
   def initialize
-    @logger = Logger.new(STDERR)
   end
   
-
   def walk_directory directory
     Dir.foreach(Pathname.new(directory)) do |l1_name|
       begin
@@ -46,7 +44,7 @@ class DirectoryWalker
         filename = Pathname(directory) + l1_name
         yield filename
       rescue => err
-        @logger.error("processing #{filename}: #{err}, #{err.backtrace[0]}")
+#        puts "ERROR: processing #{filename}: #{err}, #{err.backtrace[0]}"
       end
     end    
     
@@ -56,21 +54,20 @@ class DirectoryWalker
           next if l1_name[0] == 46                 # skip . and ..
           l2_path = Pathname.new(l1_path) + l1_name
           if l2_path.directory?
-            @logger.info "Processing directory #{l2_path}..."
             Dir.foreach(l2_path) do |l2_name|
               begin
                 next if l2_name[0] == 46             # skip . and ..
                 current_file = Pathname(l2_path) + l2_name
                 yield current_file
               rescue => err
-                @logger.error("processing #{current_file}: #{err}, #{err.backtrace[0]}")
+#                puts "ERROR: processing #{current_file}: #{err}, #{err.backtrace[0]}"
               end
             end
           else
-            @logger.warn("Skipping #{l2_path}")
+#            puts "Skipping #{l2_path}"
           end
         rescue => err
-          @logger.error("processing #{l1_path}: #{err}, #{err.backtrace[0]}")
+#          puts "processing #{l1_path}: #{err}, #{err.backtrace[0]}"
         end
       end
     end    
