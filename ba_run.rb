@@ -1,26 +1,26 @@
 #!/usr/bin/env ruby
 =begin
-  * Name: Ballot-analyzer
+  * Name: ba-run
   * Description: Analyze voting ballots
   * Author: Pito Salas
   * Copyright: (c) R. Pito Salas and Associates, Inc.
   * Date: January 2009
   * License: GPL
 
-  This file is part of Ballot-analyzer.
+  This file is part of Ballot-Analizer.
 
-  Ballot-analyzer is free software: you can redistribute it and/or modify
+  Ballot-Analizer is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Ballot-analyzer is distributed in the hope that it will be useful,
+  Ballot-Analizer is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Ballot-analyzer.  If not, see <http://www.gnu.org/licenses/>.
+  along with Ballot-Analizer.  If not, see <http://www.gnu.org/licenses/>.
 
   require "ruby-debug"
   Debugger.settings[:autolist] = 1 # list nearby lines on stop
@@ -49,14 +49,16 @@ class BARun
   def parse_commandline
     parser = GetoptLong.new
     parser.set_options(
-        ["-h", "--help", GetoptLong::NO_ARGUMENT],
-        ["-t", "--test", GetoptLong::NO_ARGUMENT],
-        ["-v", "--version", GetoptLong::NO_ARGUMENT],
-        ["-l", "--log", GetoptLong::NO_ARGUMENT],
-        ["-u", "--upstream", GetoptLong::NO_ARGUMENT],
-        ["-d", "--directory", GetoptLong::REQUIRED_ARGUMENT ])
+                    ["-h", "--help", GetoptLong::NO_ARGUMENT],
+                    ["-t", "--test", GetoptLong::NO_ARGUMENT],
+                    ["-v", "--version", GetoptLong::NO_ARGUMENT],
+                    ["-l", "--log", GetoptLong::NO_ARGUMENT],
+                    ["-u", "--upstream", GetoptLong::NO_ARGUMENT],
+                    ["-f", "--file", GetoptLong::REQUIRED_ARGUMENT], 
+                    ["-d", "--directory", GetoptLong::REQUIRED_ARGUMENT ])
     
-    @action = :fail
+    @action = :none
+    @style = :none
     loop do
       begin
         opt, arg = parser.get
@@ -65,51 +67,34 @@ class BARun
           when "-h"
             puts "Usage: ..."
             @action = :nothing
-            break
-          when "-t"
+          break
+            when "-t"
             @action = :test
           when "-v"
             puts "Version 0.0"
             @action = :nothing
             break
-          when "-d"
+          when "-d", "-f"
+          if @style == :none
             @action = :run
-            @directory = arg
+            @style = opt == "-d" ? :directory : :file
+            @path = arg
+          else
+            puts "Cannot specify more than one of -d and -f"
+          end
           when "-u"
             @action = :run
             @upstream = true
           when "-l"
-            @action = :run
             @logging = true
         end
       end
     end    
   end
   
-  def do_test_mode
-    puts "start"
-    i = 0
-    5.times do
-      puts "ballot #{i}"
-      delay = rand(5).to_i
-      sleep delay
-      i = i+1
-    end
-    puts "exit"
-  end
-    
-  def do_run_mode
-    inparams = { :upstream => UpstreamReporter.new(@upstream, @logging),
-                 :target_dpi => 100,
-                 :max_skew => 0.15,
-                 :dir_style => :simple,
-                 :path => @directory}
-    
-    outparams = []
-    processor = PbProcessor.new inparams, outparams
-    processor.process_directory
-    puts outparams.to_yaml if @logging
-  end
+  #
+  # Based on options, invoke the right code
+  #
   
   def dispatch
     if @action == :test
@@ -120,7 +105,32 @@ class BARun
   end
 end
 
+def do_test_mode
+  puts "start"
+  i = 0
+  5.times do
+    puts "ballot #{i}"
+    delay = rand(5).to_i
+    sleep delay
+    i = i+1
+  end
+  puts "exit"
+end
+
+def do_run_mode
+  inparams = {   :upstream => UpstreamReporter.new(@upstream, @logging),
+                 :target_dpi => 200,
+                 :max_skew => 0.10,
+                 :path_style => @style,
+                 :path => @path}
+  
+  outparams = []
+  processor = PbProcessor.new inparams, outparams
+  processor.process
+  puts outparams.to_yaml if @logging
+end
+
+
 ba_run = BARun.new
 ba_run.parse_commandline
 ba_run.dispatch
-

@@ -1,25 +1,25 @@
 =begin
-  * Name: AnalyzePb
+  * Name: pbanalyzer.rb
   * Description: Analyze voting ballots
   * Author: Pito Salas
   * Copyright: (c) R. Pito Salas and Associates, Inc.
   * Date: January 2009
   * License: GPL
 
-  This file is part of GovSDK.
+  This file is part of Ballot-Analizer.
 
-  GovSDK is free software: you can redistribute it and/or modify
+  Ballot-Analizer is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  GovSDK is distributed in the hope that it will be useful,
+  Ballot-Analizer is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with GovSDK.  If not, see <http://www.gnu.org/licenses/>.
+  along with Ballot-Analizer.  If not, see <http://www.gnu.org/licenses/>.
 
   require "ruby-debug"
   Debugger.settings[:autolist] = 1 # list nearby lines on stop
@@ -63,10 +63,10 @@ class PbAnalyzer < IaDsl
   Top_timings_mark_count = 34
   Left_timing_marks_count = 53
   
-  def initialize
-    super()
+  def initialize up_stream
+    super(up_stream)
   end
-  
+
 #
 # Utility function that converts a geometric parameter specified in inches into what it would be in pixels
 #
@@ -84,7 +84,7 @@ class PbAnalyzer < IaDsl
     @up.info "Premier Ballot: Processing #{filename}, Target DPI=#{target_dpi}"
     @target_dpi = target_dpi
     open_image :ballot, filename, target_dpi
-    binarize :ballot
+#    binarize :ballot
     d_write_image :ballot
 
   # Remove black edge along top, if any
@@ -158,7 +158,8 @@ class PbAnalyzer < IaDsl
   # Now see if deksewing is necessary by computing the relative positions
     tangent = (x_bottom.to_f - x_top.to_f) / (y_bottom.to_f - y_top.to_f)
     atan = Math::atan2( x_bottom - x_top, y_bottom - y_top) * 360.0 / (2.0 * Math::PI)
-    result[:skew_angle] = atan 
+    result[:skew_angle] = atan
+    @upstream.info "balot is measured with a skew of #{atan} degrees."
     if atan.abs > max_skew
       rotate :cropped, atan
       d_write_image :cropped
@@ -230,13 +231,31 @@ class PbAnalyzer < IaDsl
     # Go through all permutations (skipping the first and last one because they are the timing marks themselves) and see
     # if there's a filled out mark at the intersection
 
-    grid_columns.each do | col |
-      grid_rows.each do | row |
-        next if row == grid_rows[0] || row == grid_rows[-1] || col == grid_columns[0] || col == grid_columns[-1] 
-        score = inspect_checkbox :cropped, col-g(Vote_oval_width)/2, row-g(Vote_oval_height)/2, g(Vote_oval_width), g(Vote_oval_height)
+#    grid_columns.each do | col |
+#      grid_rows.each do | row |
+#        next if row == grid_rows[0] || row == grid_rows[-1] || col == grid_columns[0] || col == grid_columns[-1] 
+#        score = inspect_checkbox :cropped, col-g(Vote_oval_width)/2, row-g(Vote_oval_height)/2, g(Vote_oval_width), g(Vote_oval_height)
+#        if score < (QuantumRange * 0.25).to_int then
+#          m_trace "r: #{row}, c: #{col} -> #{score}"
+#          @raw_marked_votes << [row, col]
+#        end
+#      end
+#    end
+#
+# Hot rows and columns are those rows and columns which *might* contain a vote oval.
+# This is a cahracteristic of the Premier Ballot and not dependent on Ballot Style
+#
+    grid_hot_columns = [2, 13, 24]
+    grid_hot_rows = Array.new(47-10-1) {|x| x + 10}
+
+    grid_hot_columns.each do |col_index|
+      grid_hot_rows.each do |row_index|
+        row_coord = grid_rows[row_index]
+        col_coord = grid_columns[col_index]
+        score = inspect_checkbox :cropped, col_coord-g(Vote_oval_width)/2, row_coord-g(Vote_oval_height)/2, g(Vote_oval_width), g(Vote_oval_height)
         if score < (QuantumRange * 0.25).to_int then
-          m_trace "r: #{row}, c: #{col} -> #{score}"
-          @raw_marked_votes << [row, col]
+          m_trace "r: #{row_index}, c: #{col_index} -> #{score}"
+          @raw_marked_votes << [row_index, col_index]
         end
       end
     end

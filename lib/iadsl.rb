@@ -37,11 +37,12 @@ class IaDsl
   White = QuantumRange   # QuantumRange is white when it occurs as the intensity value in a B&W image
   Black = 0
   
-  def initialize
+  def initialize up_stream
     @var_table = Hash.new
     @profiling = false
     @tracing = false
     @prof_data = Hash.new
+    @upstream = up_stream
   end
 
 #
@@ -49,7 +50,7 @@ class IaDsl
 #
   def diagnostics command
     if command == :profile
-      puts "++ Profiling Started\n\n"
+      @upstream.info "++ Profiling Started\n\n"
       @profiling = true
     elsif command == :end
       generate_profiling_report
@@ -59,6 +60,10 @@ class IaDsl
       generate_profiling_report if @profiling
     elsif command == :trace
       @tracing = true
+    elsif command == :intermediate_images
+      @intermediate_images = true
+    else
+      raise "invalid argument to iadsl diagnostics method"
     end
   end
 
@@ -68,11 +73,11 @@ class IaDsl
   def print var_name
     v = @var_table[var_name]
     if v.class == Array
-      puts "Array: #{v.length}: #{@var_table[var_name].inspect}"
+      @upstream.info "Array: #{v.length}: #{@var_table[var_name].inspect}"
     elsif v.class == Fixnum
-      puts "Integer: #{v}"
+      @upstream.info "Integer: #{v}"
     elsif v.nil?
-      puts "nil"
+      @upstream.info "nil"
     end
   end
   
@@ -623,7 +628,7 @@ class IaDsl
    end
 
    def m_begin name
-     puts ">> Entering #{name}" if @tracing
+     @upstream.info ">> Entering #{name}" if @tracing
      m_begin_noprint name
    end
    
@@ -636,7 +641,7 @@ class IaDsl
    end
    
    def m_end name
-     puts "<< Leaving #{name}" if @tracing
+     @upstream.info "<< Leaving #{name}" if @tracing
      m_end_noprint name
    end
      
@@ -649,18 +654,18 @@ class IaDsl
    
    def generate_profiling_report
      return unless profiling?
-     puts "\n+++ Profiling:"
+     @upstream.info "\n+++ Profiling:"
      @prof_data.each do |key, value|
-       printf "%25s   (%dx)   avg: %1.3f sec\n", key, value.calls_count, value.cumulative_time/value.calls_count
+       @upstream.info(sprintf("%25s   (%dx)   avg: %1.3f sec\n", key, value.calls_count, value.cumulative_time/value.calls_count))
      end
    end
    
    def m_trace arg
-     puts arg if @tracing
+     @upstream.info arg if @tracing
    end
    
    def d_write_image id, filename=nil
-     write_image id, filename if @tracing
+     write_image id, filename if @intermediate_images
    end
        
 #

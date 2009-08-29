@@ -1,25 +1,25 @@
 =begin
-  * Name: Ballot-analyzer
+  * Name: pbprocessor.rb
   * Description: Analyze voting ballots
   * Author: Pito Salas
   * Copyright: (c) R. Pito Salas and Associates, Inc.
   * Date: January 2009
   * License: GPL
 
-  This file is part of GovSDK.
+  This file is part of Ballot-Analizer.
 
-  GovSDK is free software: you can redistribute it and/or modify
+  Ballot-Analizer is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  GovSDK is distributed in the hope that it will be useful,
+  Ballot-Analizer is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with GovSDK.  If not, see <http://www.gnu.org/licenses/>.
+  along with Ballot-Analizer.  If not, see <http://www.gnu.org/licenses/>.
 
   require "ruby-debug"
   Debugger.settings[:autolist] = 1 # list nearby lines on stop
@@ -46,7 +46,7 @@ Val_params = {
   :target_dpi => Fixnum,
   :upstream => UpstreamReporter,
   :max_skew => Float,
-  :dir_style => Symbol,
+  :path_style => Symbol,
   :path => String
 }
 
@@ -55,12 +55,12 @@ Val_params = {
     @target_dpi = inparams[:target_dpi] || Target_DPI_default
     @max_skew = inparams[:max_skew] || Max_skew_default
     @upstream = inparams[:upstream]
-
     @array_of_results = outlist
     @params = inparams
     
-    diagnostics :trace if @debugging == :on
-    @analyzer = PbAnalyzer.new
+    @analyzer = PbAnalyzer.new(@upstream)
+#    @analyzer.diagnostics :trace
+#    @analyzer.diagnostics :intermediate_images
   end
 
 #
@@ -102,31 +102,44 @@ Val_params = {
     barcode_value = compute_barcode(barcode_vect)
     bitfield(15, 18, barcode_value)
   end
-  
+ 
 #
-# driver: Process a two level directory structure
+# Actually run through all the supplied images. Using path_style, decide whether the path is a single file,
+# a full directory, or a two level directory structure and invoke iterator or not
 #
-  def process_2level_directory_structure
-    raise "Invalid dir_style parameter" unless @params[:dir_style] == :two_level
-    @dir_walker = DirectoryWalker.new
-    @dir_walker.walk_2level_path @params[:path] do |fname|
-      process_single_file fname
-    end      
+  def process
+    case @params[:path_style]
+      when :directory
+      process_directory :single_level
+      when :file
+      process_single_file @params[:path]
+      when :two_level
+      process_directory :two_level
+    else
+      raise "Invalid dir_style parameter"
+    end  
   end
-  
+
 #
-# driver: Process a simple directory structure
+# Process a directory structure, single or two level
 #
-  def process_directory
-    raise "invalid dir_style parameter" unless @params[:dir_style] == :simple
-    @dir_walker = DirectoryWalker.new
-    @dir_walker.walk_directory @params[:path] do |fname|
-      process_single_file fname
+    def process_directory levels
+      @dir_walker = DirectoryWalker.new
+      if levels == :single_level
+        @dir_walker.walk_directory @params[:path] do |fname|
+          process_single_file fname
+        end
+      elsif levels == :two_level
+        @dir_walker.walk_2level_path @params[:path] do |fname|
+          process_single_file fname
+        end      
+      else 
+        raise "invalid levels parameters for process_directory"        
+      end
     end
-  end
-  
+
 #
-# driver: Process a single file, specified in parameter
+# Process a single file, specified in parameter
 #
   def process_single_file fname
     @result = Hash.new
@@ -138,8 +151,9 @@ Val_params = {
       @analyzer.analyze_ballot_image fname, @target_dpi, @max_skew, @result, @upstream
       @result[:ballot_style] = deduce_ballot_style(@result[:raw_barcode])
       @upstream.stream("success")
-    rescue
+    rescue => except
       @upstream.stream("failure")
+      @upstream.info(except.inspect)
     end
   end
 end
