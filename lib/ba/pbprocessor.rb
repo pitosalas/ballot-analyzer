@@ -151,9 +151,11 @@ Val_params = {
       @analyzer.analyze_ballot_image fname, @target_dpi, @max_skew, @result, @upstream
       @result[:ballot_style] = deduce_ballot_style(@result[:raw_barcode])
       @upstream.stream("success")
+      @result[:status] = :success
     rescue => except
       @upstream.stream("failure")
       @upstream.info(except.inspect)
+      @result[:status] = :failure
     end
   end
 end

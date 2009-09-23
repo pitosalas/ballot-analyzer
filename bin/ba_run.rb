@@ -27,18 +27,14 @@
   Debugger.settings[:autoeval] = 1
   Debugger.start
 =end
-$:.unshift '/mydev/ballot-analizer/'
+$LOAD_PATH.unshift File.dirname(__FILE__) + '/../lib'
 
 require 'rubygems'
 require 'getoptlong'
+require 'ba'
 require 'yaml'
 require 'logger'
 
-require 'lib/iadsl.rb'
-require 'lib/upreporter.rb'
-require 'lib/pbprocessor.rb'
-require 'lib/pbanalyzer.rb'
-require 'lib/bautils'
 
 class BARun
   def initialize
@@ -54,18 +50,20 @@ class BARun
                     ["-v", "--version", GetoptLong::NO_ARGUMENT],
                     ["-l", "--log", GetoptLong::NO_ARGUMENT],
                     ["-u", "--upstream", GetoptLong::NO_ARGUMENT],
+                    ["-r", "--result", GetoptLong::REQUIRED_ARGUMENT],
                     ["-f", "--file", GetoptLong::REQUIRED_ARGUMENT], 
                     ["-d", "--directory", GetoptLong::REQUIRED_ARGUMENT ])
     
     @action = :none
     @style = :none
+    @result = :none
     loop do
       begin
         opt, arg = parser.get
         break if not opt
         case opt
           when "-h"
-            puts "Usage: ..."
+            puts "Usage: ha! Read the code, silly :)"
             @action = :nothing
           break
             when "-t"
@@ -87,6 +85,9 @@ class BARun
             @upstream = true
           when "-l"
             @logging = true
+          when "-r"
+            puts arg
+            @result = arg
         end
       end
     end    
@@ -127,7 +128,13 @@ def do_run_mode
   outparams = []
   processor = PbProcessor.new inparams, outparams
   processor.process
-  puts outparams.to_yaml if @logging
+  if @logging
+    puts outparams.to_yaml if @logging
+  end
+  if @result != :none
+    puts @result
+    File.open(@result, "w") { |f| f << outparams.to_yaml }
+  end
 end
 
 
