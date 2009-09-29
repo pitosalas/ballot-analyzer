@@ -121,7 +121,7 @@ end
 def do_run_mode
   inparams = {   :upstream => UpstreamReporter.new(@upstream, @logging),
                  :target_dpi => 200,
-                 :max_skew => 0.10,
+                 :max_skew => 0.08,
                  :path_style => @style,
                  :path => @path}
   

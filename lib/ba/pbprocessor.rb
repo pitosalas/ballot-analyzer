@@ -60,7 +60,7 @@ Val_params = {
     
     @analyzer = PbAnalyzer.new(@upstream)
 #    @analyzer.diagnostics :trace
-#    @analyzer.diagnostics :intermediate_images
+    @analyzer.diagnostics :intermediate_images
   end
 
 #

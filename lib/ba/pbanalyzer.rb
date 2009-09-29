@@ -40,12 +40,12 @@ class PbAnalyzer < IaDsl
 
   Row1st_top_timing_band = 0.0 # 0
   Rowlast_top_timing_band = 0.15 # 0.1 # 30
-  Scanline_top_timing_mark = 1/16.0 # 0.033 # 10 # 8
+  Scanline_top_timing_mark = 1/32.0 - 0.1 # 0.033 # 10 # 8
 
   Col1st_left_timing_band = 0.0 # 0
   Collast_left_timing_band = 3/8.0 # 0.4 # 0.333 # 100
   Colkey_left_timing_band = 3/32.0 # 0.15 # 30 # 20
-  Min_height_left_timing_mark = 0.0625 # 10 
+  Min_height_left_timing_mark = 1/32.0 # 0.0625 # 10 
   Minimum_width_left_timing_mark = 0.1333 # 40 
   Offset_from_left_timing_mark_top = 0.01666 # 5
   Offset_from_left_timing_band_edge = 3/8.0 # 0.333 # 100
@@ -174,9 +174,9 @@ class PbAnalyzer < IaDsl
   # take a one pixel slice along the top to find the timing marks along the top. Clean it up to get rid of noise, and 
   # then look at intervals to locate the black segments which are then the timing marks.
     slice_row :top_timing_band, g(Scanline_top_timing_mark), g(Scanline_top_timing_mark)+1, :top_timing_row
+    d_write_image :top_timing_row
     column_timing_marks = []
     find_black_segments :rows, :top_timing_row, column_timing_marks, g(Timing_mark_minwidth)
-    d_write_image :top_timing_row
 
   # Sometimes there's a black bleed at the right of the page that can be confused with a timing mark. Detect and
   # remove it before checking that we have the correct number.

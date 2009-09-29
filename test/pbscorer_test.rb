@@ -297,4 +297,5 @@ class PBScorerTest < Test::Unit::TestCase
       puts @scorer.results.csv
     end
   end
+
 end
