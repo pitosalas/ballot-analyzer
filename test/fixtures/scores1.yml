@@ -1,0 +1,102 @@
+--- 
+- :status: :failure
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw001.tif
+- :status: :failure
+  :skew_angle: -0.72217746154481
+  :rotated: -0.72217746154481
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw002.tif
+- :status: :success
+  :raw_barcode: [0, 1, 16, 26, 28, 29, 32, 33]
+  :raw_marked_votes: [[32, 2]]
+  :skew_angle: -0.109384707719423
+  :ballot_style: 2
+  :rotated: -0.109384707719423
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw003.tif
+- :status: :success
+  :raw_barcode: [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33]
+  :raw_marked_votes: []
+  :skew_angle: 0.0656810329559686
+  :ballot_style: 1
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw004.tif
+- :status: :failure
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw005.tif
+- :status: :failure
+  :skew_angle: -0.699227277750035
+  :rotated: -0.699227277750035
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw006.tif
+- :status: :success
+  :raw_barcode: [0, 1, 16, 26, 28, 29, 32, 33]
+  :raw_marked_votes: [[24, 2]]
+  :skew_angle: -0.0874076812582142
+  :ballot_style: 2
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw007.tif
+- :status: :success
+  :raw_barcode: [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33]
+  :raw_marked_votes: []
+  :skew_angle: 0.065505816938625
+  :ballot_style: 1
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw008.tif
+- :status: :success
+  :raw_barcode: [0, 1, 16, 26, 28, 29, 32, 33]
+  :raw_marked_votes: [[28, 2]]
+  :skew_angle: -0.153021557804719
+  :ballot_style: 2
+  :rotated: -0.153021557804719
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw009.tif
+- :status: :failure
+  :skew_angle: 0.153079962701566
+  :rotated: 0.153079962701566
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw010.tif
+- :status: :success
+  :raw_barcode: [0, 1, 16, 26, 28, 29, 32, 33]
+  :raw_marked_votes: [[24, 2]]
+  :skew_angle: -0.0873743577562243
+  :ballot_style: 2
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw011.tif
+- :status: :success
+  :raw_barcode: [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33]
+  :raw_marked_votes: []
+  :skew_angle: 0.0874410301882273
+  :ballot_style: 1
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw012.tif
+- :status: :success
+  :raw_barcode: [0, 1, 16, 26, 28, 29, 32, 33]
+  :raw_marked_votes: [[24, 2]]
+  :skew_angle: -0.131061409639582
+  :ballot_style: 2
+  :rotated: -0.131061409639582
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw013.tif
+- :status: :success
+  :raw_barcode: [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33]
+  :raw_marked_votes: []
+  :skew_angle: 0.10917627699783
+  :ballot_style: 1
+  :rotated: 0.10917627699783
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw014.tif
+- :status: :success
+  :raw_barcode: [0, 1, 16, 26, 28, 29, 32, 33]
+  :raw_marked_votes: [[22, 2]]
+  :skew_angle: -0.131161417996649
+  :ballot_style: 2
+  :rotated: -0.131161417996649
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw015.tif
+- :status: :failure
+  :skew_angle: -0.743491282547028
+  :rotated: -0.743491282547028
+  :filename: !ruby/object:Pathname 
+    path: /mydev/iaharness/ballotsamples/432Leon200dpibw016.tif

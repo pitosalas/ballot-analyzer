@@ -1,0 +1,146 @@
+        { 1 => 
+          { :name => '1311G-2',
+            :coords => 
+            [
+              { :contest => :contst_amend_1,
+                :choices => 
+                { [9,  2] => 'yes',
+                  [10, 2] => 'no'
+                }
+              },
+              { :contest => :contst_amend_2,
+                :choices => 
+                { [20,  2] => 'yes',
+                  [21, 2] => 'no'
+                }
+              },
+              { :contest => :contst_amend_3,
+                :choices => 
+                { [32,  2] => 'yes',
+                  [33, 2] => 'no'
+                }
+              },
+              { :contest => :contst_amend_4,
+                :choices => 
+                { [47,  2] => 'yes',
+                  [48, 2] => 'no'
+                }
+              },
+              { :contest => :contst_amend_6,
+                :choices => 
+                { [13,  13] => 'yes',
+                  [14, 13] => 'no'
+                }
+              },
+              { :contest => :contst_amend_8,
+                :choices => 
+                { [23,  13] => 'yes',
+                  [24, 13] => 'no'
+                }
+              },
+              
+            ]
+          },
+        2 =>
+          { :name => '1311G-1',
+            :coords =>
+              [
+                { :contest => :president,
+                  :choices =>  
+                    { [12, 2] => 'mccain',
+                      [14, 2] => 'obama',
+                      [16, 2] => 'riva',
+                      [18, 2] => 'baldwin', 
+                      [20, 2] => 'amondson',
+                      [22, 2] => 'bar',
+                      [24, 2] => 'stevens',
+                      [28, 2] => 'mckinney',
+                      [30, 2] => 'keyes',
+                      [32, 2] => 'nader',
+                      [34, 2] => 'moore',
+                      [36, 2] => 'jay',
+                      [38, 2] => 'write-in'
+                    }
+                },
+                { :contest => :secondcongres,
+                  :choices => 
+                    { [45, 2] => 'mulligan',
+                      [47, 2] => 'boyd',
+                      [49, 2] => 'write-in'
+                    }
+                },
+                { :contest => :eightstatehouse,
+                  :choices =>
+                    { [13, 13] => 'williams',
+                      [14, 13] => 'Maddox',
+                      [15, 13] => 'write-in'}
+                },
+                { :contest => :justicesupreme_welles,
+                  :choices =>
+                    { [21, 13] => 'yes',
+                      [22, 13] => 'no'
+                    }
+                },
+                { :contest => :districtct_benton,
+                  :choices => 
+                    { [26, 13] => 'yes',
+                      [27, 13] => 'no'
+                    }
+                 },
+                { :contest => :districtct_davis,
+                  :choices => 
+                    { [31, 13] => 'yes',
+                      [32, 13] => 'no'
+                    }
+                 },
+                { :contest => :districtct_lewis,
+                  :choices => 
+                    { [36, 13] => 'yes',
+                      [37, 13] => 'no'
+                    }
+                 }, 
+                { :contest => :districtct_polston,
+                  :choices => 
+                    { [41, 13] => 'yes',
+                      [42, 13] => 'no'
+                    }
+                 },
+                { :contest => :districtct_nortwick,
+                  :choices => 
+                    { [11, 24] => 'yes',
+                      [12, 24] => 'no'
+                    }
+                 },
+                { :contest => :second_circuit_7,
+                  :choices => 
+                    { [16, 24] => 'raleigh',
+                      [17, 24] => 'sheffield'
+                    }
+                 },
+                { :contest => :county_judge_5,
+                  :choices => 
+                    { [21, 24] => 'richardson',
+                      [22, 24] => 'desmond'
+                    }
+                 },
+                { :contest => :county_comm_1,
+                  :choices => 
+                    { [28, 24] => 'akinyemi',
+                      [29, 24] => 'dePuy'
+                    }
+                 },
+               {  :contest => :city_comm_1,
+                  :choices => 
+                    { [35, 24] => 'mustian',
+                      [36, 24] => 'write-in'
+                    }
+                 },
+               { :contest => :water_dist_1_super,
+                  :choices => 
+                    { [42, 24] => 'acosta',
+                      [43, 24] => 'mcglyn'
+                    }
+                 }                           
+              ]
+            }
+          }
