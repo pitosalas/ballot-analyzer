@@ -34,5 +34,5 @@ require 'test/unit'
 $LOAD_PATH.unshift lib_dir unless $LOAD_PATH.include?(lib_dir)
 
 require 'shoulda'
-require 'mocha'
+require 'flexmock/test_unit'
 require 'pp'

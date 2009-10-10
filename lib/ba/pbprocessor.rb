@@ -58,7 +58,7 @@ Val_params = {
     @array_of_results = outlist
     @params = inparams
     
-    @analyzer = PbAnalyzer.new(@upstream)
+    @analyzer = PbAnalyzer2.new(@upstream)
 #    @analyzer.diagnostics :trace
     @analyzer.diagnostics :intermediate_images
   end

@@ -102,7 +102,7 @@ class IaDsl
 #  
   def write_image id, filename=nil
     m_begin "write_image"
-    filename = id.to_s+".gif" if filename.nil?
+    filename = "./temp/" +id.to_s+".gif" if filename.nil?
     get_image(id).write(filename)
     m_end "write_image"
   end
@@ -217,6 +217,13 @@ class IaDsl
   end
   
 #
+# Threshold an image
+#
+  def threshold id, percent
+    put_image(id, get_image(id).bilevel_channel(QuantumRange*percent/100.0))
+  end
+  
+#
 # Resample, change dpi of an image
 # 
   def resample inimage, dpi, outimage=nil
@@ -288,9 +295,16 @@ class IaDsl
   end
   
 #
-# Crop the image so that ...
+# Crop the image along one of the 4 sides. That is, remove one of the four bands. 
+# <tt>side</tt>:: One of :top, :left, :bottom, :right
+# <tt>direction</tt>::  One of :row or :column. 
+# N.B. Those two arguments together determine which band is being removed. (Yes, the direction argument 
+# is technically redundant but it's there to make sure we know what the caller wants.
+# <tt>image</tt>::  the imageID for the imate being operated upon
+# <tt>starting</tt>:: the offset from the relevant edge to which we crop
+# <tt>outimage</tt>:: Optional ImageID where the resultant image goes. Otherwise the source image is overwritten.
 # 
-# Underlying ImageMagick call is:
+# N.B. Underlying ImageMagick call is:
 #     img.crop(x, y, width, height) ->  image
 #
   def  side_crop side, rowcol, image, starting, outimage=nil
@@ -317,7 +331,13 @@ class IaDsl
   end
 
 #
-# Copy a rectangle of pixels from one image into a new image
+# Copy a rectangle of pixels from one image into a new image.
+#<tt>inimage_id</tt>::  imageID of the imaeg being operated on
+#<tt>x</tt>:: x coord (horizontal) of starting point
+#<tt>x</tt>:: y coord (vertical) of starting point
+#<tt>width</tt>:: number of pixels across, in width, for rectangle being copied
+#<tt>height</tt>:: number of pixels down, in height, for rectangle being copied
+#<tt>outimage_id</tt>:: imageID for result
 #  
   def copy_subimage inimage_id, x, y, width, height, outimage_id
     m_begin "copy_subimage"
@@ -331,6 +351,11 @@ class IaDsl
 # 
 # Take a vertical column out of this image and return it as another image
 #
+# <tt>inimage</tt>::  imageID of input image
+# <tt>colbeg</tt>:: beginning column, in pixels
+# <tt>colend</tt>:: ending column, in pixels
+# <tt>outimage</tt>:: imageID of result image
+#
   def slice_column inimage, colbeg, colend, outimage
     m_begin "slice_column"
     img = get_image(inimage)
@@ -341,6 +366,11 @@ class IaDsl
   
 #
 # take a horizontal row out of this image and return it as another image
+#
+# <tt>inimage</tt>::  imageID of input image
+# <tt>rowbeg</tt>:: beginning row, in pixels
+# <tt>rowend</tt>:: ending row, in pixels
+# <tt>outimage</tt>:: imageID of result image
 #
   def slice_row inimage, rowbeg, rowend, outimage
     m_begin "slice_row"
@@ -471,10 +501,26 @@ class IaDsl
   end
   
 #
+# Project an image from a rectangle to a single column (leftup is :left) or (leftup is :up) row of pixels
+#
+# <tt>leftup</tt>::   either :left (meaning project to a single column or :up (which means to a single row)
+# <tt>image</tt>::    imageID for input image
+# <tt>image</tt>::    imageID for output image
+#
+  def project_image image, leftup, outimage
+    m_begin "project_image"
+    raise "project image doesnt support up project yet" unless leftup == :left    
+    img = get_image(image)
+    img.change_geometry('1!') { |cols, rows, geo_image| geo_image.scale!(cols, rows) }
+    put_image(outimage, img)
+  end
+
+#
 # Start scanning at 0,0 of a black and white image, and determine the first row that constains a single nonwhite pixel.
 # img.export_pixels with a map parameter of "I" returns intensities of each pixel as an integer. 
 #
   def find_first_nonwhite_row image_being_searched
+    raise "deprecated"
     m_begin "find_first_nonwhite_row"
     img = get_image(image)
     rows = img.rows
@@ -591,7 +637,6 @@ class IaDsl
     raise "not an image" if val.nil?
     val
   end
-  
     
 #
 # Internal utility methods, that don't use var_table as the way to get info in and out
