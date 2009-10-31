@@ -119,7 +119,7 @@ def do_test_mode
 end
 
 def do_run_mode
-  inparams = {   :upstream => UpstreamReporter.new(@upstream, @logging),
+  inparams = {   :upstream => UpstreamReporter.new(@upstream, @logging, false),
                  :target_dpi => 200,
                  :max_skew => 0.08,
                  :path_style => @style,
