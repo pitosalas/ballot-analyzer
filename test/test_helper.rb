@@ -28,7 +28,7 @@
 
 =end
 require 'rubygems'
-lib_dir = File.dirname(__FILE__) + '../lib'
+lib_dir = File.expand_path(File.dirname(__FILE__) + '/../lib')
 
 require 'test/unit'
 $LOAD_PATH.unshift lib_dir unless $LOAD_PATH.include?(lib_dir)

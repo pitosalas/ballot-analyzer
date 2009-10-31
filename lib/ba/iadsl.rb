@@ -21,14 +21,12 @@
   You should have received a copy of the GNU General Public License
   along with GovSDK.  If not, see <http://www.gnu.org/licenses/>.
 
-  require "ruby-debug"
-  Debugger.settings[:autolist] = 1 # list nearby lines on stop
-  Debugger.settings[:autoeval] = 1
-  Debugger.start
 =end
 
 require 'rubygems'
 require 'RMagick'
+require 'rvg/rvg'
+require 'ba/upreporter'
 include Magick
 
 class IaDsl
@@ -97,12 +95,15 @@ class IaDsl
   end
 
 #
-# Save a single image file. If second param is not supplied then we will use the image id (id) as the name of the file too. 
-# That's just a handy short hand to make things easier when debugging.
+# Save a single image file. Image file is written inside the temp directory, named after the ImageID. Optional
+# name_suffix is added to further distinguist the file.
+#
+# <tt>id</tt>:: imageID of image to write
+# <tt>name_suffix</tt>::  (optional)string to add to the name
 #  
-  def write_image id, filename=nil
+  def write_image id, name_suffix=""
     m_begin "write_image"
-    filename = "./temp/" +id.to_s+".gif" if filename.nil?
+    filename = "./temp/" +id.to_s+name_suffix+".gif"
     get_image(id).write(filename)
     m_end "write_image"
   end
@@ -217,10 +218,15 @@ class IaDsl
   end
   
 #
-# Threshold an image
+# Threshold an image.
+# <tt>inimage</tt>::  ImageID of image to be thresholded
+# <tt>percent</tt>::  Percent for threshold
+# <tt>outimage</tt>:: (optional) ImageID for result image
 #
-  def threshold id, percent
-    put_image(id, get_image(id).bilevel_channel(QuantumRange*percent/100.0))
+  def threshold inimage, percent, outimage=nil
+    out = get_image(inimage).bilevel_channel(QuantumRange*percent/100.0)
+    outimage = inimage if outimage.nil?
+    put_image(outimage, out)
   end
   
 #
@@ -456,13 +462,16 @@ class IaDsl
 # Primitive scoring of a mark. 
 #
   def inspect_checkbox image, xpos, ypos, width, height
-    m_begin_noprint "inspect_checkbox"
+#    if @intermediate_images
+#      tmp_image = "vo-#{xpos}-#{ypos}".to_sym
+#      copy_subimage image, xpos, ypos, width, height, tmp_image
+#      d_write_image(tmp_image)
+#    end
+    @upstream.ann_rect(xpos, ypos, width, height)
     img = get_image(image)
     checkbox_pixels = img.excerpt(xpos, ypos, width, height)
     shrink_to_one = checkbox_pixels.scale(1,1)
-    score = shrink_to_one.get_pixels(0,0,1,1)[0].red
-    m_end_noprint "inspect_checkbox"
-    score
+    return shrink_to_one.get_pixels(0,0,1,1)[0].red
   end
   
 #
@@ -505,14 +514,17 @@ class IaDsl
 #
 # <tt>leftup</tt>::   either :left (meaning project to a single column or :up (which means to a single row)
 # <tt>image</tt>::    imageID for input image
-# <tt>image</tt>::    imageID for output image
 #
-  def project_image image, leftup, outimage
-    m_begin "project_image"
-    raise "project image doesnt support up project yet" unless leftup == :left    
+  def project_image image, leftup
     img = get_image(image)
-    img.change_geometry('1!') { |cols, rows, geo_image| geo_image.scale!(cols, rows) }
-    put_image(outimage, img)
+    if leftup == :left
+      img.change_geometry('1!') { |cols, rows, geo_image| geo_image.scale!(cols, rows) }
+    elsif leftup == :up
+      width = img.columns
+      img.change_geometry("#{width}x1!") { |cols, rows, geo_image| geo_image.scale!(cols, rows) }
+    elsif
+      raise "project_image: invalid leftup parameter"
+    end
   end
 
 #
@@ -709,7 +721,7 @@ class IaDsl
      @upstream.info arg if @tracing
    end
    
-   def d_write_image id, filename=nil
+   def d_write_image id, filename=""
      write_image id, filename if @intermediate_images
    end
        
@@ -735,5 +747,73 @@ class IaDsl
     end
     @var_table[id] = val
   end
+end
+
+class ImageMagickUpstreamReporter < UpstreamReporter
+  
+  def ann_begin(imagefile, name)
+    super
+    @ann_name = name
+    @base_image_file = imagefile
+    @ann_image_list = ImageList.new
+    @ann_image_list.read(imagefile)
+#
+# Use RMagick's RVG class to create the annotation layer. Set the dpi to match the image's dpi
+# 
+    img = @ann_image_list[0] 
+    RVG::dpi = 200
+    @ann_layer = RVG.new(img.columns, img.rows)
+  end
+
+#
+# Offset from image's actual origin that will pertain to the various annotation calls following.
+#
+# <tt>x</tt>::  x position
+# <tt>y</tt>::  y position (duh)
+#
+  def ann_offset(x, y)
+    return if @ann_layer == nil
+    @ann_layer.translate x, y
+  end
+  
+#
+# Annotate with a rectangle.
+#
+# <tt>x</tt>::  top coordinate (in pixels)
+# <tt>y</tt>::  left coordinate (in pixels)
+# <tt>width</tt>::  height (in pixels)
+# <tt>height</tt>::  width (in pixels)
+#
+  def ann_rect(x, y, width, height)
+    return if @ann_layer == nil
+    @ann_layer.rect(width, height, x, y).round(2).styles(:opacity => 0.4,  :fill => "yellow")
+  end
+  
+# 
+# Annotate a point with a target symbol
+#
+# <tt>x</tt>::  X position in pixels
+# <tt>x</tt>::  Y positiion in pixels
+#
+  def ann_point(x, y)
+    return if @ann_layer == nil
+    @ann_layer.circle(3, x, y).styles(:fill => "blue")
+    @ann_layer.line(x-8, y, x+8, y)
+    @ann_layer.line(x, y-8, x, y-8)
+  end
+
+#
+# Done annotating. Save the image file.
+# <tt>filename</tt>:: filename for the result file
+#
+  def ann_done(filename)
+    if !@ann_layer.nil?
+      ann_layer_image = @ann_layer.draw
+      @ann_image_list << ann_layer_image
+    end
+    flattend = @ann_image_list.optimize_layers(FlattenLayer)
+    flattend.write("./temp/" + filename + ".gif")
+  end
+
 end
 
