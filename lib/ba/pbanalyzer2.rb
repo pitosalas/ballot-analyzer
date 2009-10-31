@@ -82,6 +82,7 @@ class PbAnalyzer2 < PbCommonAnalyzer
 
     # resolve, based on some heuristic, what we believe to be the actual origin and angle
     self.ballot_origin, self.ballot_angle = resolve_location(results)
+    @upstream.ann_point(self.ballot_origin.x, self.ballot_origin.y, 10)
 #    puts "raw results: #{results.inspect}"
 #    puts "ballot_angle #{ballot_angle}, ballot origin: #{ballot_origin}"    
   end

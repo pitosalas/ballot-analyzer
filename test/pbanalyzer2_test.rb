@@ -58,6 +58,7 @@ class PbAbalyzer2Test < Test::Unit::TestCase
       @result = {:filename => fname }
       upstream = flexmock("upstream")
       upstream.should_receive(:ann_offset)
+      upstream.should_receive(:ann_point)
       upstream.should_receive(:info).once    
       @bi.analyze_ballot_image fname, 200, @result, upstream
       assert @result.has_key? :raw_barcode
@@ -96,6 +97,9 @@ class PbAbalyzer2Test < Test::Unit::TestCase
     setup do
       upstream = flexmock("upstream")
       upstream.should_receive(:ann_offset, :ann_rect)
+      upstream.should_receive(:ann_rect)
+      upstream.should_receive(:ann_point)
+
       assert upstream.ann_offset(1,2).nil?
       @bi = PbAnalyzer2.new(upstream)
       @bi.target_dpi = 200

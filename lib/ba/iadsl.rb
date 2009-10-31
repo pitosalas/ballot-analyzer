@@ -794,12 +794,13 @@ class ImageMagickUpstreamReporter < UpstreamReporter
 #
 # <tt>x</tt>::  X position in pixels
 # <tt>x</tt>::  Y positiion in pixels
+# <tt>size</tt>::  size of the target
 #
-  def ann_point(x, y)
+  def ann_point(x, y, size = 4)
     return if @ann_layer == nil
-    @ann_layer.circle(3, x, y).styles(:fill => "blue")
-    @ann_layer.line(x-8, y, x+8, y)
-    @ann_layer.line(x, y-8, x, y-8)
+    @ann_layer.circle(size, x, y).styles(:fill => "none", :stroke => "black")
+    @ann_layer.line(x-size*2, y, x+size*2, y)
+    @ann_layer.line(x, y-size*2, x, y+size*2)
   end
 
 #
