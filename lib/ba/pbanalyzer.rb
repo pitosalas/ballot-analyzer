@@ -21,11 +21,6 @@
   You should have received a copy of the GNU General Public License
   along with Ballot-Analizer.  If not, see <http://www.gnu.org/licenses/>.
 
-  require "ruby-debug"
-  Debugger.settings[:autolist] = 1 # list nearby lines on stop
-  Debugger.settings[:autoeval] = 1
-  Debugger.start
-
 =end
 
 class PbAnalyzer < IaDsl
@@ -35,16 +30,16 @@ class PbAnalyzer < IaDsl
 # no reason to ever change them unless the ballot layouts change.
 
 # Geometric constants, in inches.
-  Timing_mark_minwidth = 0.1333 # 40
+  Timing_mark_minwidth = 3/32.0
   Timing_mark_typheight = 0.06 # 18
 
   Row1st_top_timing_band = 0.0 # 0
   Rowlast_top_timing_band = 0.15 # 0.1 # 30
-  Scanline_top_timing_mark = 1/32.0 - 0.1 # 0.033 # 10 # 8
+  Scanline_top_timing_mark = 3/64.0
 
   Col1st_left_timing_band = 0.0 # 0
   Collast_left_timing_band = 3/8.0 # 0.4 # 0.333 # 100
-  Colkey_left_timing_band = 3/32.0 # 0.15 # 30 # 20
+  Colkey_left_timing_band = 4/32.0 # 0.15 # 30 # 20
   Min_height_left_timing_mark = 1/32.0 # 0.0625 # 10 
   Minimum_width_left_timing_mark = 0.1333 # 40 
   Offset_from_left_timing_mark_top = 0.01666 # 5
@@ -66,6 +61,8 @@ class PbAnalyzer < IaDsl
   def initialize up_stream
     super(up_stream)
   end
+  
+  attr_accessor :target_dpi
 
 #
 # Utility function that converts a geometric parameter specified in inches into what it would be in pixels
@@ -80,8 +77,8 @@ class PbAnalyzer < IaDsl
   def analyze_ballot_image filename, target_dpi, max_skew, result, upstream
     @raw_barcode = []
     @raw_marked_votes = []
-    @up = upstream
-    @up.info "Premier Ballot: Processing #{filename}, Target DPI=#{target_dpi}"
+    @upstream = upstream
+    @upstream.info "Premier Ballot: Processing #{filename}, Target DPI=#{target_dpi}"
     @target_dpi = target_dpi
     open_image :ballot, filename, target_dpi
 #    binarize :ballot
@@ -153,7 +150,7 @@ class PbAnalyzer < IaDsl
     find_black_segments :rows, :img_last_mark, black_segs, g(Minimum_width_left_timing_mark)
     x_bottom = black_segs[0][1]
 
-    @up.info "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
+    @upstream.info "[#{x_top},#{y_top}] ....[#{x_bottom},#{y_bottom}]"
 
   # Now see if deksewing is necessary by computing the relative positions
     tangent = (x_bottom.to_f - x_top.to_f) / (y_bottom.to_f - y_top.to_f)
@@ -246,12 +243,13 @@ class PbAnalyzer < IaDsl
 # This is a cahracteristic of the Premier Ballot and not dependent on Ballot Style
 #
     grid_hot_columns = [2, 13, 24]
-    grid_hot_rows = Array.new(47-10-1) {|x| x + 10}
+    grid_hot_rows = Array.new(52-10-1) {|x| x + 10}
 
     grid_hot_columns.each do |col_index|
       grid_hot_rows.each do |row_index|
         row_coord = grid_rows[row_index]
         col_coord = grid_columns[col_index]
+        @upstream.ann_point(row_coord, col_coord)
         score = inspect_checkbox :cropped, col_coord-g(Vote_oval_width)/2, row_coord-g(Vote_oval_height)/2, g(Vote_oval_width), g(Vote_oval_height)
         if score < (QuantumRange * 0.25).to_int then
           m_trace "r: #{row_index}, c: #{col_index} -> #{score}"

@@ -42,7 +42,7 @@ class PbAnalyzer2 < PbCommonAnalyzer
 # oval to be checked. The other ones are in the margins, or in other impossible places.
 #
   Hot_columns = [2, 13, 24]
-  Hot_rows = Array.new(47-10-1) {|x| x + 11}
+  Hot_rows = Array.new(50-7-1) {|x| x + 7}
 
   def initialize up_stream
     super(up_stream)
@@ -83,8 +83,6 @@ class PbAnalyzer2 < PbCommonAnalyzer
     # resolve, based on some heuristic, what we believe to be the actual origin and angle
     self.ballot_origin, self.ballot_angle = resolve_location(results)
     @upstream.ann_point(self.ballot_origin.x, self.ballot_origin.y, 10)
-#    puts "raw results: #{results.inspect}"
-#    puts "ballot_angle #{ballot_angle}, ballot origin: #{ballot_origin}"    
   end
 
 #

@@ -135,23 +135,35 @@ class PbAbalyzer2Test < Test::Unit::TestCase
     end
   end
   
-  context "Testing annotations on test_ballot_1" do
+  def common_setup filename, name
+    filename = File.dirname(__FILE__) + filename 
+    @upstream = ImageMagickUpstreamReporter.new(false, false, true)
+    @upstream.ann_begin(filename, name)
+    @bi = PbAnalyzer2.new(@upstream)
+    @bi.target_dpi = 200
+    @bi.open_ballot_image :ballot, filename, @bi.target_dpi
+  end
+  
+  def common_gen_ann_image name
+    @bi.locate_ballot
+    @bi.raw_marked_votes = []
+    @bi.analyze_vote_ovals
+    @upstream.ann_done(name)    
+  end
+  
+  context "Test annotations on test ballots" do
     setup do
-      filename = File.dirname(__FILE__) + "/fixtures/test_ballot_1.tif"
-      @upstream = ImageMagickUpstreamReporter.new(false, false, true)
-      @upstream.ann_begin(filename, "test")
-      @bi = PbAnalyzer2.new(@upstream)
-      @bi.target_dpi = 200
-      @bi.open_ballot_image :ballot, filename, @bi.target_dpi
+      @list = [["/fixtures/test_ballot_1.tif", "b1"],
+               ["/fixtures/test_ballot_2.tif", "b2"]]
     end
     
-    should "generate an annotated image" do
-      @bi.locate_ballot
-      @bi.raw_marked_votes = []
-      @bi.analyze_vote_ovals
-      @upstream.ann_done("annotated")
+    should "generate annotated image" do
+      @list.each do
+        |filename, id|
+          common_setup filename, id
+          common_gen_ann_image id
+      end
     end
-    
   end
 
 end

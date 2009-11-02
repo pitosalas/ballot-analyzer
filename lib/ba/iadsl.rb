@@ -812,8 +812,8 @@ class ImageMagickUpstreamReporter < UpstreamReporter
       ann_layer_image = @ann_layer.draw
       @ann_image_list << ann_layer_image
     end
-    flattend = @ann_image_list.optimize_layers(FlattenLayer)
-    flattend.write("./temp/" + filename + ".gif")
+    flattend = @ann_image_list.flatten_images
+    flattend.write("./temp/" + filename + ".jpg")
   end
 
 end

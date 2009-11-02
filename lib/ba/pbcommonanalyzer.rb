@@ -99,17 +99,7 @@ class PbCommonAnalyzer < IaDsl
       raise "p2i argument error"
     end
   end
-  
-#
-# Utility function that converts a BPoint in inches into a BPoint in (skew and offset) adjusted pixels
-#
-  def adjust_point_i2a p
-    raise ArgumentError, "adjust_point expects a BPoint" unless p.class == BPoint
-    result = @ballot_origin
-    
-  end
 
-  
 # 
 # open the imaage and condition it.
 #
