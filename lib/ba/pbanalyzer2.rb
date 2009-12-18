@@ -21,20 +21,17 @@
   You should have received a copy of the GNU General Public License
   along with Ballot-Analizer.  If not, see <http://www.gnu.org/licenses/>.
 
-  require "ruby-debug"
-  Debugger.settings[:autolist] = 1 # list nearby lines on stop
-  Debugger.settings[:autoeval] = 1
-  Debugger.start
-
 =end
+
+require 'ba/bautils'
 
 class PbAnalyzer2 < PbCommonAnalyzer
   
 #
 # Key measurements, in inches
 #
-  TopExtent = 3/4.0         # How tall the top zone (with timing marks) is assumed to be
-  LeftExtent = 3/8.0         # How wide the left zone (with timing marks) is assumed to be
+  TopExtent = 3/8.0         # How tall the top zone (with timing marks) is assumed to be
+  LeftExtent = 3/8.0        # How wide the left zone (with timing marks) is assumed to be
   RightExtent = 3/8.0       # How wide the RIGHT zone (with timing marks) is assumed to be
   
 #
@@ -43,73 +40,113 @@ class PbAnalyzer2 < PbCommonAnalyzer
 #
   Hot_columns = [2, 13, 24]
   Hot_rows = Array.new(50-7-1) {|x| x + 7}
+  
+  Barcode_Columns = TM_Top_Count
+  Barcode_Row = TM_Sides_Count
+  
+#
+# Detection Thresholds: 0 - pure black, 1 = pure white
+#
+  BarCodeDetectThresh = 0.65 # How black does a barcode have to be to count? 
+  VoteOvalDetectThresh = 0.50 # How black does a vote checkmark have to be to count?
 
+# 
+# PBAnalyzer2 object is used for a series of ballot analyses. Here we initialize state
+# which is needed for the whole object. 
+# <tt>up_stream</tt>:: upstream reporter object.
   def initialize up_stream
     super(up_stream)
   end
   
-  attr_accessor :raw_marked_votes
-
-  
 #
-# Analyze a Premier Ballot. Main worker.
+# Reset things for the next ballot
 #
-  def analyze_ballot_image filename, dpi, result, upstream
+# <tt>filename</tt>:: path to ballot
+# <tt>dpi</tt>:: desired dpi. ballot is scaled to this dpi (TODO: what does this really do?)
+# <tt>result</tt>:: Hash which will receive the result of scanning one ballot
+# <tt>upstream</tt>:: upstream reporting object (TODO: why is this repeated?)
+  def reset_analyzer filename, dpi, result, upstream
     @raw_barcode = []
     @raw_marked_votes = []
     @filename = filename
     @upstream = upstream
-    @upstream.info "Premier Ballot2: Processing #{filename}, Target DPI=#{target_dpi}"
-    self.target_dpi = dpi
-    open_ballot_image :ballot, filename, dpi
-    locate_ballot
-    result[:raw_barcode] = @raw_barcode
+    @upstream.info "Premier Ballot2: Processing #{filename}, Target DPI=#{dpi}"
+    self.target_dpi = dpi  
   end
 
+#
+# Clean up and pull out whatever result the object state and store it in the results hash
+# <tt>results</tt>::  results hash
+  def compile_results results
+    def @raw_barcode.to_yaml_style; :inline; end
+    def @raw_marked_votes.to_yaml_style; :inline; end
+    result[:raw_barcode] = @raw_barcode
+    result[:raw_marked_votes] = @raw_marked_votes
+  end
+  
+  attr_accessor :raw_marked_votes, :raw_barcode
+ 
+#
+# Analyze a Premier Ballot. Main worker.
+#
+# <tt>filename</tt>:: path to ballot
+# <tt>dpi</tt>:: desired dpi. ballot is scaled to this dpi (TODO: what does this really do?)
+# <tt>result</tt>:: Hash which will receive the result of scanning one ballot
+# <tt>upstream</tt>:: upstream reporting object (TODO: why is this repeated?)
+#
+  def analyze_ballot_image filename, dpi, result, upstream
+    reset_analyzer filename, dpi, result, upstream
+    open_ballot_image :ballot, filename, dpi
+    locate_ballot
+    sanity_check_ballot_coords
+    analyze_vote_ovals
+    analyze_barcode
+    sanity_check
+    compile_results result
+  end
 
 #
 # Analyze the image to determine the skew and origin. This is done by analyzing the three 
-# fixed sets of marks, along the top, left and right. Each one will yield an opinion of where the pixel 
-# coordinates of the origin and the degress of rotation of the ballot. We use those three
-# to come up with a majority vote.
+# fixed sets of marks, along the top, left and right. Each one will furnish information about
+# both the placement and the angle of the ballot. The end result of this method is the best guess
+# for @topleft, @bottomleft, @topright, @bottomright and @angle
 #
   def  locate_ballot
     
-    # create an array containing the three results from the locate_marks calls.
-    results = [locate_marks(:top, :ballot, TopExtent),
-               locate_marks(:left, :ballot, LeftExtent),
-               locate_marks(:right, :ballot, RightExtent)]
+    topmarks = locate_marks(:top, :ballot, TopExtent)
+    leftmarks = locate_marks(:left, :ballot, LeftExtent)
+    rightmarks = locate_marks(:right, :ballot, RightExtent)
 
-    # resolve, based on some heuristic, what we believe to be the actual origin and angle
-    self.ballot_origin, self.ballot_angle = resolve_location(results)
-    @upstream.ann_point(self.ballot_origin.x, self.ballot_origin.y, 10)
+# The angle of the ballot is simply the average of the non-nil angles returned from the three marks (note that )
+# the returned angle will be nil if locate_marks can't figure it out'
+    angles = [topmarks.angle, leftmarks.angle, rightmarks.angle].compact
+    self.angle  = angles.inject {|total, x| total+x}/angles.length
+    
+# Determimne the 4 corners of the ballot. Some info is redundant, so if it's not found in one place, we try other places. 
+# We create a list of all the candidates for each one, in order of preference, and then in a 
+# separate pass we decide which one is the best match
+
+    top_left_x = [] << topmarks.firstmark.x << leftmarks.firstmark.x
+    top_left_y = [] << topmarks.firstmark.y << leftmarks.firstmark.y
+    bottom_left_x = [] << leftmarks.lastmark.x << leftmarks.firstmark.x << topmarks.firstmark.x
+    bottom_left_y = [] << leftmarks.lastmark.y << rightmarks.lastmark.y
+    top_right_x = [] << topmarks.lastmark.x << rightmarks.firstmark.x
+    top_right_y = [] << topmarks.lastmark.y << rightmarks.firstmark.y << topmarks.firstmark.y << leftmarks.firstmark.y
+    bottom_right_x = [] << rightmarks.lastmark.x << topmarks.lastmark.x
+    bottom_right_y = [] << rightmarks.lastmark.y << leftmarks.lastmark.y
+    
+    self.top_left = BPoint.new(top_left_x.detect {|x| !x.nil?}, top_left_y.detect {|x| !x.nil?})
+    self.bottom_left = BPoint.new(bottom_left_x.detect {|x| !x.nil?}, bottom_left_y.detect {|x| !x.nil?})
+    self.top_right= BPoint.new(top_right_x.detect {|x| !x.nil?}, top_right_y.detect {|x| !x.nil?} )
+    self.bottom_right = BPoint.new(bottom_right_x.detect {|x| !x.nil?}, bottom_right_y.detect {|x| !x.nil?})
+    
+    @upstream.ann_point(self.top_left.x, self.top_left.y, 10)
+    @upstream.ann_point(self.top_right.x, self.top_right.y, 10)
+    @upstream.ann_point(self.bottom_left.x, self.bottom_left.y, 10)
+    @upstream.ann_point(self.bottom_right.x, self.bottom_right.y, 10)
+
   end
 
-#
-# Come up with the origin and rotation that we will actually rely on based on a set of
-# estimates from the 3 different strategies for figuring that out.
-# <tt>locations</tt>::  array of [origin, angle] pairs, or nil, in case a strategy failed
-#
-# returns
-#   [origin, angle]::   result of resolving the votes
-#
-  def resolve_location locations
-    locations.compact!
-    votes = locations.length
-    raise "Cannot figure out ballot" if votes == 0
-    angle_total = 0
-    x_total = 0
-    y_total = 0
-    locations.each do 
-      |angle_origin_pair|
-        angle_total += angle_origin_pair[1]
-        x_total += angle_origin_pair[0].x
-        y_total += angle_origin_pair[0].y
-    end
-    angle = angle_total / votes
-    origin = BPoint.new(x_total/votes, y_total/votes)
-    [origin, angle]
-  end
 
 #
 # Walk through all the potential locations for vote ovals.where the vote oval would be, and then analyze it.
@@ -119,13 +156,46 @@ class PbAnalyzer2 < PbCommonAnalyzer
       Hot_rows.each do |row_index|
         vote_oval_pos = transform_point(BPoint.new(col_index, row_index))
         @upstream.ann_point(vote_oval_pos.x, vote_oval_pos.y)
-        score = inspect_checkbox :ballot, vote_oval_pos.x - i2p(Vote_oval_width)/2.0, vote_oval_pos.y-i2p(Vote_oval_height)/2.0, i2p(Vote_oval_width), i2p(Vote_oval_height)
-        if score < (QuantumRange * 0.7).to_int then
-          m_trace "r: #{row_index}, c: #{col_index} -> #{score}"
+        xpos = vote_oval_pos.x - i2p(Vote_oval_width)/2.0
+        ypos = vote_oval_pos.y-i2p(Vote_oval_height)/2.0
+        width = i2p(Vote_oval_width)
+        height = i2p(Vote_oval_height)
+        @upstream.ann_rect(xpos, ypos, width, height)
+        score = shrink_to_one :ballot, xpos, ypos, width, height
+        if score < (QuantumRange * VoteOvalDetectThresh).to_int then
           @raw_marked_votes << [row_index, col_index]
         end
       end
     end
+  end
+  
+#
+# Walk through the barcode, and record whether each 'tic' is on or off
+#
+  def analyze_barcode
+      Barcode_Columns.times do |barcode_col_index|
+        barcode_pos = transform_point(BPoint.new(barcode_col_index, Barcode_Row-1), :bottombias)
+        @upstream.ann_point(barcode_pos.x, barcode_pos.y)
+        score = shrink_to_one(:ballot, barcode_pos.x - i2p(TM_Width)/2.0, barcode_pos.y-i2p(TM_Height)/2.0, i2p(TM_Width), i2p(TM_Height))
+        if score < (QuantumRange * BarCodeDetectThresh).to_int then
+          @raw_barcode << barcode_col_index
+        end
+      end
+  end
+  
+#
+# Sanity check raw votes and raw barcodes. There are certain things we know about the results
+# even before we tell one ballot style from another. This method will sort that out.
+#
+  def sanity_check
+    @raw_barcode.include?(0) && @raw_barcode.include?(Barcode_Columns-1)
+  end
+  
+# 
+# Sanity check the ballot coordiantes, in other words, did we reasonably detect the 4 corners? If not
+# there's no point in continuing.
+  def sanity_check_ballot_coords
+    
   end
 
 #
@@ -135,17 +205,20 @@ class PbAnalyzer2 < PbCommonAnalyzer
 # Returns:
 # :: BPoint in image pixel coordinates.
 #
-  def transform_point(point) 
+  def transform_point(point, bias=nil) 
   # here: col_index and row_index of the potential vote oval, using the 'timing mark' coordinate system
-    ballot_coord = point_b2i(point)
-  # here: ballot_coord is the position of the vote oval, in inches from the origin
-    bc_in_pixels = BPoint.new(i2p(ballot_coord.x), i2p(ballot_coord.y))
-  # here: now bc is in pixel coordinates, still off the ballot origin (vs. the image orign)
-    bc_physical = bc_in_pixels.offset(self.ballot_origin) 
-  # here: bc_physical is the position of the vote oval, after accounting for the offset of the origin from pixel(0,0)
-    bc_rotated = bc_physical.rotate BPoint.deg_to_rad(self.ballot_angle)     
+    bc_fractional = point_b2f(point)
+  # here: ballot_coord is the position of the vote oval, in ballot fraction coordinates
+    if bias == :bottombias
+      bc_in_pixels = point_f2p_bottom_bias(bc_fractional)
+    else
+      bc_in_pixels = point_f2p(bc_fractional)
+    end
+
+  # here: bc_in_pixels is the position of the vote oval, after accounting for the offset of the origin from pixel(0,0)
+  #  bc_rotated = bc_in_pixels.rotate BPoint.deg_to_rad(self.angle)  
   # here: rotated_bc is the position of the vote oval in inch coordinates from the origin, after accounting for rotation
-    bc_corrected = BPoint.new(bc_rotated.x+i2p(TM_Width/2.0), bc_rotated.y+i2p(TM_Height/2.0))
+    bc_corrected = BPoint.new(bc_in_pixels.x+i2p(TM_Width/2.0), bc_in_pixels.y+i2p(TM_Height/2.0))
   # here: bc_corrected is the position of the center of the target vote oval
     return bc_corrected
   end
@@ -159,10 +232,65 @@ class PbAnalyzer2 < PbCommonAnalyzer
 # Returns:: BPoint of the result coordinats, in inches
 #
   def point_b2i(coord)
+    raise DeprecatedError, "method: point_b2i deprecated"
     raise ArgumentError, "b2i expects a BPoint" unless coord.class == BPoint
     raise ArgumentError, "b2i Point coord out of bounds" unless coord.x < TM_Top_Count && coord.y < TM_Sides_Count
     BPoint.new(coord.x * (TM_Width+TM_H_Space), coord.y * (TM_Height+TM_V_Space)) 
   end
+  
+#
+# Given a BPoint in ballot coordinates (i.e. indexed by timing mark position), return a BPoint where the coords
+# are floats, 0<x<1.0 representing the fraction of the distance between in the 'ballot field' which is the space demarkated
+# between the first and last timing mark.
+# <tt>coord</tt>::  BPoint of the source coordinates
+# Returns:: BPoint of the result coordinats, as a fraction
+#
+  def point_b2f(coord)
+    raise ArgumentError, "b2i expects a BPoint" unless coord.class == BPoint
+    raise ArgumentError, "b2i Point coord out of bounds" unless coord.x < TM_Top_Count && coord.y < TM_Sides_Count
+    BPoint.new(coord.x / (TM_Top_Count-1.0), coord.y / (TM_Sides_Count-1.0))
+  end
+  
+#
+# Given a BPoint in fractional coordinates (a coordinate between 0.0 <= c < 1.0, which says how far between a pair of 
+# edges of the ballot zone.) compute the corresponding position in pixels.
+#
+# <tt>coord</tt>::  Fractional coordinate of a point
+# Returns:: BPoint of that point, in pixels
+#
+  def point_f2p_new(coord)
+    begin
+      x = coord.x * (@top_right.x - @top_left.x) + coord.y * (@bottom_left.x - @top_left.x) + @top_left.x
+      y = coord.x * (@top_right.y - @top_left.y) + coord.y * (@bottom_left.y - @top_left.y) + @top_left.y
+      BPoint.new(x, y)
+    rescue
+      BPoint.new(0,0)
+    end
+  end
+  
+    
+  def point_f2p(coord)
+    begin
+      x = coord.x * (@top_right.x - @top_left.x) + @top_left.x
+      y = coord.y * (@bottom_left.y - @top_left.y) + @top_left.y
+      BPoint.new(x, y)
+    rescue
+      BPoint.new(0,0)
+    end
+  end
+  
+  def point_f2p_bottom_bias(coord)
+    begin
+      x = coord.x * (@bottom_right.x - @bottom_left.x) + @bottom_left.x
+      y = coord.y * (@bottom_left.y - @top_left.y) + @top_left.y
+      BPoint.new(x, y)
+    rescue
+      BPoint.new(0,0)
+    end
+  end
+
 end
+
+
 
 

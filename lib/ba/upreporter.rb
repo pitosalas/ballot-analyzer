@@ -96,6 +96,14 @@ class UpstreamReporter
   end
 
 #
+# Annotate with a point.
+# <tt>x</tt>:: x,y coord for point
+# <tt>size</tt>:: size of the bulls eye in pixels.
+  def ann_point(x, y, size = 4)
+  end
+
+
+#
 # Complete a single annotated image. Next call needs to be "ann_begin"
 #
   def ann_done

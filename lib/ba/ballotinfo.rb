@@ -59,9 +59,9 @@ class BallotInfo
     
   end
   
-  def add_to_count precinct, contest, choice, increment
+  def add_to_count precinct, filename, contest, choice, increment
     validate_coords(precinct, contest, choice)
-    @data_table << [:jurisdiction, precinct, contest, choice, increment]
+    @data_table << [:jurisdiction, filename, precinct, contest, choice, increment]
   end
   
   def get_count precinct, contest, choice
@@ -92,10 +92,7 @@ private
   def validate_coords(precinct, contest, choice)
     raise "no such contest" unless contest? contest
     raise "no such precinct" unless precinct? precinct
- #   if !choice? contest, choice
- #     raise "no such choice: #{choice}"
- #   end
- end
+  end
   
 end
 

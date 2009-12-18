@@ -21,14 +21,7 @@
   You should have received a copy of the GNU General Public License
   along with Ballot-Analizer.  If not, see <http://www.gnu.org/licenses/>.
 
-  require "ruby-debug"
-  Debugger.settings[:autolist] = 1 # list nearby lines on stop
-  Debugger.settings[:autoeval] = 1
-  Debugger.start
-
 =end
- 
-
 
 class PbCommonAnalyzer < IaDsl
 # 
@@ -36,8 +29,9 @@ class PbCommonAnalyzer < IaDsl
 #
   TopwhiteMarginOffset = 1/32.0   # How much less than the detected white top margin we actualy remove
   EndRectSize = 1.0               # Size of the rectangle that is taken off a band to analyze skew
+  TopWhiteMarginPeekBand = 1/8.0  # Height of strip of image that is analyzed at a time to find top margin, in inches 
   MinMarkHeight = 0.75 * 1/16.0   # Height of the shortest band of black that will be considered a timing mark
-  MinMarkWidth = 0.75 * 2/16.0    # Widtht of the shortest band of black that will be considered a timing mark.
+  MinMarkWidth = 0.5 * 2/16.0    # Widtht of the shortest band of black that will be considered a timing mark.
 #
 # These thresholds are in percent
 #
@@ -48,9 +42,11 @@ class PbCommonAnalyzer < IaDsl
 #
   ThreshRight1 = 80.0
   ThreshRight2 = 90.0
+  ThreshLeft1 = 80.0
   ThreshLeft2 = 90.0
   ThreshLeft3 = 70.0
   ThreshTop3 = 90.0
+
 
 #
 # Dimensions of the Premier timing marks, in inches
@@ -59,6 +55,7 @@ class PbCommonAnalyzer < IaDsl
   TM_Height = 1/16.0
   TM_H_Space = 1/16.0
   TM_V_Space = 3/16.0
+  
   TM_Top_Count = 34
   TM_Sides_Count = 53
 
@@ -67,8 +64,14 @@ class PbCommonAnalyzer < IaDsl
 #
   Vote_oval_width = 1/4.0
   Vote_oval_height = 1/8.0
+  
+#
+# Margin Peek Band Threshold
+#
+  MarginPeekThreshold =  0.8       # 1.0 is pure white. How white does the top area have to be to be considered part of margin
 
-  attr_accessor :target_dpi, :ballot_origin, :ballot_angle
+
+  attr_accessor :target_dpi, :top_left, :top_right, :bottom_left, :bottom_right, :angle
 
   def initialize up_stream
     super(up_stream)
@@ -100,10 +103,37 @@ class PbCommonAnalyzer < IaDsl
     end
   end
 
-# 
 # open the imaage and condition it.
+#<tt>imageID</tt>:: imageid to be used for newly opened image
+#<tt>filename</tt>:: filename where to find the image
+#<tt>dpi</tt>:: desired dpi. If the image is not that dpi it is resampled. 
 #
   def open_ballot_image imageId, filename, dpi
+    self.target_dpi = dpi
+    open_image imageId, filename, dpi
+
+# Remove the top white margin by examining bands of pixels along the top until we find the first band that is not
+# (close to) pure white. That is where the timing marks will be. Note that we are not insisting on pure white because
+# there are often smudges and imperfections there.
+#
+    current_band_y = 0
+    average_whiteness = QuantumRange
+    band_pixels = i2p(TopWhiteMarginPeekBand)
+    while average_whiteness > (QuantumRange * MarginPeekThreshold).to_int
+      average_whiteness = shrink_to_one(imageId, 0, current_band_y, columns(imageId), band_pixels)
+      current_band_y += band_pixels
+    end
+#
+# Current band now contains timing marks. So back off by two bands and trim the image. (Backing off by one sometimes cuts off the slightest 
+# sliver of the timing marks and messes things up.
+#
+    current_band_y -= band_pixels * 2
+    side_crop :top, :row, imageId, current_band_y
+    @upstream.ann_offset(0, current_band_y)
+    d_write_image imageId
+  end
+
+  def open_ballot_image_old imageId, filename, dpi
     self.target_dpi = dpi
     open_image imageId, filename, dpi
 
@@ -122,6 +152,7 @@ class PbCommonAnalyzer < IaDsl
     @upstream.ann_offset(0, adjusted_nonwhite)
     d_write_image imageId
   end
+  
  
 #
 # Locate and compute the offset and angle of the (timing or registration) marks in the indicated part
@@ -131,9 +162,12 @@ class PbCommonAnalyzer < IaDsl
 # <tt>image</tt>:: The <tt>imageID</tt> of the image to analyze
 # <tt>extent</tt>:: The extent, in inches, from the designated edge
 # Returns:
-# <tt> offset</tt>:: the offset, in inches, where the first mark is found. The origin.
+    LocateMarks = Struct.new("LocateMarks", :firstmark, :lastmark, :angle)
+# <tt>firstmark</tt>:: the offset, in pixels, where the first mark is found. The origin.
+# <tt>lastmark</tt>:: the offset, in pixels, where the last mark is found
 # <tt> angle</tt>:: the angle, in degrees, corresponding to the detected skew
 #
+
   def locate_marks side, image, extent
     d_write_image image
 #
@@ -145,12 +179,12 @@ class PbCommonAnalyzer < IaDsl
                    SideBandThresh, :columns, i2p(MinMarkHeight), :rect1, rect1segments, "top" 
     elsif side == :left
       detect_marks image, 0, 0, i2p(extent), i2p(EndRectSize), :up,
-                   LongSideThresh, :rows, i2p(MinMarkWidth), :rect1, rect1segments, "left" 
+                   ThreshLeft1, :rows, i2p(MinMarkWidth), :rect1, rect1segments, "left" 
     elsif side == :right
       detect_marks image, columns(image) - i2p(extent), 0, i2p(extent), i2p(EndRectSize), :up, 
                    ThreshRight1, :rows, i2p(MinMarkWidth), :rect1, rect1segments, "right" 
     end
-    return nil if rect1segments.length != 1
+    return LocateMarks.new(BPoint.nil, BPoint.nil, 0.0) if rect1segments.length != 1
 
     rect2segments = Array.new
     if side == :top
@@ -163,7 +197,7 @@ class PbCommonAnalyzer < IaDsl
       detect_marks image, columns(image) - i2p(extent), rows(image) - i2p(EndRectSize), i2p(extent), i2p(EndRectSize), :up, 
                    ThreshRight2, :rows, i2p(MinMarkWidth), :rect2, rect2segments, "right" 
     end
-    return nil if rect2segments.length == 0
+    return LocateMarks.new(BPoint.nil, BPoint.nil, 0.0) if rect2segments.length == 0
 #
 # Now project the timing marks to the top (or side) to figure out the offsets in the other direction.
 #
@@ -183,13 +217,13 @@ class PbCommonAnalyzer < IaDsl
     if side == :top
   # Compute the midpoint of the first timing mark
       origin = BPoint.new(rect3segments[0][0], rect1segments[0][0])
-      point2 = BPoint.new(rect3segments[0][0], rect1segments[0][1])
-      firstmarkmidpoint = BLine.new(origin, point2).mid
+      origin_prime = BPoint.new(rect3segments[0][0], rect1segments[0][1])
+      firstmarkmidpoint = BLine.new(origin, origin_prime).mid
       
   # Compute the midpoint of the last timing mark
-      point1 = BPoint.new(rect3segments[-1][0], rect2segments[0][0])
-      point2 = BPoint.new(rect3segments[-1][0], rect2segments[0][1])
-      secondmarkmidpoint = BLine.new(point1, point2).mid
+      terminal = BPoint.new(rect3segments[-1][0], rect2segments[0][0])
+      terminal_prime = BPoint.new(rect3segments[-1][0], rect2segments[0][1])
+      secondmarkmidpoint = BLine.new(terminal, terminal_prime).mid
       rotation_angle = BPoint.angle(firstmarkmidpoint, secondmarkmidpoint)
 
 # Have a headache yet? Detailed arithmetic is different (signs etc.) depending on side
@@ -198,41 +232,49 @@ class PbCommonAnalyzer < IaDsl
 
   # Compute the midpoint of the first timing mark
       origin = BPoint.new(rect1segments[0][0], rect3segments[0][0])
-      point2 = BPoint.new(rect1segments[0][1], rect3segments[0][0])
-      firstmarkmidpoint = BLine.new(origin, point2).mid
+      origin_prime = BPoint.new(rect1segments[0][1], rect3segments[0][0])
+      firstmarkmidpoint = BLine.new(origin, origin_prime).mid
       
   # Compute the midpoint of the last timing mark
-      point1 = BPoint.new(rect2segments[0][0], rect3segments[-1][0])
-      point2 = BPoint.new(rect2segments[0][1], rect3segments[-1][0])
-      secondmarkmidpoint = BLine.new(point1, point2).mid
+      terminal = BPoint.new(rect2segments[0][0], rect3segments[-1][0])
+      terminal_prime = BPoint.new(rect2segments[0][1], rect3segments[-1][0])
+      secondmarkmidpoint = BLine.new(terminal, terminal_prime).mid
       rotation_angle = (BPoint.angle(firstmarkmidpoint, secondmarkmidpoint) - 90.0).modulo 90.0
 
     elsif side == :right
 
   # Compute the midpoint of the first timing mark
       origin = BPoint.new(rect1segments[-1][0], rect3segments[0][0])
-      point2 = BPoint.new(rect1segments[-1][1], rect3segments[0][0])
-      firstmarkmidpoint = BLine.new(origin, point2).mid
+      origin_prime = BPoint.new(rect1segments[-1][1], rect3segments[0][0])
+      firstmarkmidpoint = BLine.new(origin, origin_prime).mid
       
   # Compute the midpoint of the last timing mark
-      point1 = BPoint.new(rect2segments[-1][0], rect3segments[-1][0])
-      point2 = BPoint.new(rect2segments[-1][1], rect3segments[-1][0])
-      secondmarkmidpoint = BLine.new(point1, point2).mid
+      terminal = BPoint.new(rect2segments[-1][0], rect3segments[-1][0])
+      terminal_prime = BPoint.new(rect2segments[-1][1], rect3segments[-1][0])
+      secondmarkmidpoint = BLine.new(terminal, terminal_prime).mid
       rotation_angle = (BPoint.angle(firstmarkmidpoint, secondmarkmidpoint) - 90.0).modulo 90.0
-# unline the left and top, on the right the origin of the first mark is not the origin of the page. We need 
+#
+# unlike the left and top, on the right the origin of the first mark is not the origin of the page. We need 
 # to compensate for the distance between the page's actual origin and where the right marks are, by using the
 # known distance between the timing marks along the top and the space between then and how many there are.
-      abs_x_pos = origin.x + columns(image) - i2p(extent)
-      origin.x = abs_x_pos - i2p((TM_Top_Count-1)*(TM_H_Space+TM_Width))
-  end
-
-# Compute the angle between those two points, and that tells us the skew
-    [origin, rotation_angle]
-      
+#
+      origin.x = origin.x + columns(image) - i2p(extent)
+      terminal.x = terminal.x + columns(image) - i2p(extent)
+    end
+    return LocateMarks.new(origin, terminal, rotation_angle)
   end
   
 #
 # implements the recipe for detecting timing marks in one of the three edges of a ballot.
+# <tt>inimage</tt>:: Imageid of image we are working with
+# <tt>x, y, width, height<tt>:: rectange corresponding to subimage containing the timing marks
+# <tt>direction</tt>::  :up or :left, to show what direction we are projecting the band for discovery
+# <tt>threshold</tt>::  number between 0 and 100 for the threshold to apply to best make the bands visible
+# <tt>rowcol</tt>::  :rows or :columns to control in what direction we are looking for the dashes
+# <tt>minsize</tt>::  smallest length of black pixels that would be considered a mark
+# <tt>outimage</tt>::  Imageid of subimage that we are working with
+# <tt>segments</tt>:: Array that will receive the start and end of detected segments
+# <tt>comment</tt>:: String used in debug output for this call
 #
   def detect_marks inimage, x, y, width, height, direction, threshold, rowcol, minsize, outimage, segments, comment 
     copy_subimage inimage, x, y, width, height, outimage
@@ -273,6 +315,10 @@ end
     
     def self.deg_to_rad deg
       (deg * Math::PI) / 180.0
+    end
+    
+    def self.nil
+      BPoint.new(nil, nil)
     end
 
     def initialize x, y

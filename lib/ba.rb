@@ -28,10 +28,10 @@
 =end
 require 'rubygems'
 
-require 'ba/iadsl.rb'
-require 'ba/pbcommonanalyzer.rb'
-require 'ba/upreporter.rb'
-require 'ba/pbprocessor.rb'
-require 'ba/pbanalyzer.rb'
-require 'ba/pbanalyzer2.rb'
+require 'ba/iadsl'
+require 'ba/pbcommonanalyzer'
+require 'ba/upreporter'
+require 'ba/pbprocessor'
+require 'ba/pbanalyzer'
+require 'ba/pbanalyzer2'
 require 'ba/bautils'

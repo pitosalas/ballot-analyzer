@@ -50,75 +50,77 @@ class PbCommonAnalyzerTest < Test::Unit::TestCase
   context "Analyzing 'test_ballot_1.tif" do
     setup do
       upstream = flexmock("upstream")
+      upstream.should_receive(:ann_offset)
       @bi = PbCommonAnalyzer.new(upstream)
       fname = File.dirname(__FILE__) + "/fixtures/test_ballot_1.tif"
       @bi.open_ballot_image :test, fname, 200
       @bi.target_dpi = 200
-      @bi.diagnostics :intermediate_images
+#      @bi.diagnostics :intermediate_images
     end
     
     should "return a reasonable angle and origin for top timing marks" do
-      origin, angle = @bi.locate_marks :top, :test, 1/2.0
+      marks = @bi.locate_marks :top, :test, 1/2.0
 #      puts "top: angle #{angle}, origin #{offset}"
-     assert_between 0.0, 0.3, angle
-     assert_between 0.0, 10, origin.distance(Point.new(18, 6))
+     assert_between 0.0, 0.3, marks.angle
+     assert_between 0.0, 10, marks.firstmark.distance(BPoint.new(18, 6))
     end
         
     should "return a reasonable angle and origin for left timing marks" do
-      origin, angle = @bi.locate_marks :left, :test, 3/8.0
+      marks = @bi.locate_marks :left, :test, 3/8.0
 #       puts "left: angle #{angle}, origin #{origin}"
-      assert_between 0.0, 0.3, angle
-      assert_between 0.0, 10, origin.distance(Point.new(18, 6))
+      assert_between 0.0, 0.3, marks.angle
+      assert_between 0.0, 10, marks.firstmark.distance(BPoint.new(18, 6))
     end
     
     should "return a reasonable angle and origin for right  timing marks" do
-      origin, angle = @bi.locate_marks :right, :test, 3/8.0
+      result = @bi.locate_marks :right, :test, 3/8.0
 #      puts "right: angle #{angle}, origin #{offset}"
-     assert_between 0.0, 0.3, angle
-     assert_between 0.0, 10, origin.distance(Point.new(18, 6))
+     assert_between 0.0, 0.3, result.angle
+     assert_between 0.0, 10, result.firstmark.distance(BPoint.new(1662, 10))
     end
   end
   
-  def analyze_ballot filename
+  def test_analyze_ballot filename
     upstream = flexmock("upstream")
+    upstream.should_receive(:ann_rect, :ann_offset)
     @bi = PbCommonAnalyzer.new(upstream)
     fname = File.dirname(__FILE__) + "/fixtures/" + filename
     @bi.open_ballot_image :test, fname, 200
     @bi.target_dpi = 200
-    @bi.diagnostics :intermediate_images
-    origin_top, angle_top = @bi.locate_marks :top, :test, 3/4.0
-    puts "top: angle #{angle_top}, origin #{origin_top}"
+#    @bi.diagnostics :intermediate_images
+    res_top = @bi.locate_marks :top, :test, 3/4.0
+    pp res_top
 
-    origin_left, angle_left = @bi.locate_marks :left, :test, 3/8.0
-    puts "left: angle #{angle_left}, origin #{origin_left}"
+    res_left = @bi.locate_marks :left, :test, 3/8.0
+    pp res_left
 
-    origin_right, angle_right = @bi.locate_marks :right, :test, 3/8.0
-    puts "right: angle #{angle_right}, origin #{origin_right}"
-    [filename, origin_top, angle_top, origin_left, angle_left, origin_right, angle_right]
+    res_right = @bi.locate_marks :right, :test, 3/8.0
+    pp res_right
+    
+    [filename, res_top, res_left, res_right]
   end
   
-  def reasonable_result origin, angle, act_x, act_y, act_angle
-    o_distance = origin.distance(Point.new(act_x, act_y))
-    o_distance >= 0.0 && o_distance < 10.0 && angle > 0.0 && angle < act_angle
+  def close? goal, actual
+    d = goal.distance(actual)
+    0.0 <= d && d < 30.0
   end
-
-  
   context "Analyzing a list of other ballots" do
     setup do
-      @speclist = [["test_ballot_1.tif", 18, 6, 1.0], ["test_ballot_2.tif", 20, 90, 1.0]]
+# Each entry: filename, TopLeft, BotLeft, TopRight, BotRight
+      @speclist = [["test_ballot_1.tif", BPoint.new(18,6), BPoint.new(10, 2620), BPoint.new(1664, 10), BPoint.new(1654, 2624)]]
     end
     
     should "return a reasonable angles and origins for all of the ballot images" do
       @speclist.each do
-        |testspec| # each speclist element is a test spec: filename, x, y of 'actual origin', and angle of 'actual rotation
-        ra = analyze_ballot testspec[0]
-        result = reasonable_result(ra[1], ra[2], testspec[1], testspec[2], testspec[3]) && 
-                 reasonable_result(ra[3], ra[4], testspec[1], testspec[2], testspec[3]) && 
-                 reasonable_result(ra[5], ra[6], testspec[1], testspec[2], testspec[3])
+        |testspec| # each speclist element is a test spec
+        rarray = test_analyze_ballot testspec[0]
+        result = close?(rarray[1].firstmark, testspec[1])
+        result = result && close?(rarray[2].firstmark, testspec[1])
+        result = result && close?(rarray[3].firstmark, testspec[3]) 
         if result
           assert true
         else
-          puts ra.inspect
+          puts rarray.inspect
           assert false, "failed processing #{filename} ballot. see console"
         end
       end
@@ -141,11 +143,11 @@ class PbCommonAnalyzerTest < Test::Unit::TestCase
     end
     
     should "rotate 0,0 correctly by 90 degrees" do
-      assert_equal Point.new(0, 0), @p1.rotate(BPoint.deg_to_rad(90.0))
+      assert_equal BPoint.new(0, 0), @p1.rotate(BPoint.deg_to_rad(90.0))
     end
     
     should "rotate 10, 10 correctly by 90 degrees" do
-      assert_equal Point.new(-10.0, 10.0), @p2.rotate(BPoint.deg_to_rad(90.0))      
+      assert_equal BPoint.new(-10.0, 10.0), @p2.rotate(BPoint.deg_to_rad(90.0))      
     end
     
     should "negage 10,10 correctly" do

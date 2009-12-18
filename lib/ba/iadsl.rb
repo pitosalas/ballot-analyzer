@@ -459,15 +459,17 @@ class IaDsl
   end
   
 # 
-# Primitive scoring of a mark. 
+# Reduce a rectangle of pixels to a single pixel so we can find out the average
+# black or whiteness of it.
+# <tt>image</tt>::  ImageId of the image in question
+# <tt>xpos, ypos, width, height</tt>::  Coords of the rectangle 
 #
-  def inspect_checkbox image, xpos, ypos, width, height
+  def shrink_to_one image, xpos, ypos, width, height
 #    if @intermediate_images
 #      tmp_image = "vo-#{xpos}-#{ypos}".to_sym
 #      copy_subimage image, xpos, ypos, width, height, tmp_image
 #      d_write_image(tmp_image)
 #    end
-    @upstream.ann_rect(xpos, ypos, width, height)
     img = get_image(image)
     checkbox_pixels = img.excerpt(xpos, ypos, width, height)
     shrink_to_one = checkbox_pixels.scale(1,1)
@@ -742,7 +744,7 @@ class IaDsl
   
   def set_variable(id, val)
     old_value = @var_table[id]
-    if !@var_table[id].nil? && @var_table[id].class == Image && old_value != val
+    if !@var_table[id].nil? && @var_table[id].class == Image && !old_value.equal?(val) # old_value != val
       old_value.destroy!
     end
     @var_table[id] = val
@@ -797,10 +799,10 @@ class ImageMagickUpstreamReporter < UpstreamReporter
 # <tt>size</tt>::  size of the target
 #
   def ann_point(x, y, size = 4)
-    return if @ann_layer == nil
-    @ann_layer.circle(size, x, y).styles(:fill => "none", :stroke => "black")
-    @ann_layer.line(x-size*2, y, x+size*2, y)
-    @ann_layer.line(x, y-size*2, x, y+size*2)
+    return if @ann_layer == nil || x.nil? || y.nil?
+    @ann_layer.circle(size, x, y).styles(:fill => "none", :stroke => "red")
+    @ann_layer.line(x-size*2, y, x+size*2, y).styles(:fill => "none", :stroke => "red")
+    @ann_layer.line(x, y-size*2, x, y+size*2).styles(:fill => "none", :stroke => "red")
   end
 
 #

@@ -30,11 +30,12 @@
 require File.dirname(__FILE__) + '/test_helper'
 require 'ba/bascore'
 require 'ba/ballotinfo'
+require 'pathname'
 
 class PBScorerTest < Test::Unit::TestCase
 
   Ballot_style_map2 = 
-        { 1 => 
+        { 0 => 
           { :name => '1311G-2',
             :coords => 
             [
@@ -77,7 +78,7 @@ class PBScorerTest < Test::Unit::TestCase
               
             ]
           },
-        2 =>
+        1 =>
           { :name => '1311G-1',
             :coords =>
               [
@@ -102,8 +103,8 @@ class PBScorerTest < Test::Unit::TestCase
                 { :contest => :secondcongres,
                   :choices => 
                     { [45, 2] => 'mulligan',
-                      [47, 2] => 'boyd',
-                      [49, 2] => 'write-in'
+                      [46, 2] => 'boyd',
+                      [47, 2] => 'write-in'
                     }
                 },
                 { :contest => :eightstatehouse,
@@ -140,6 +141,12 @@ class PBScorerTest < Test::Unit::TestCase
                   :choices => 
                     { [41, 13] => 'yes',
                       [42, 13] => 'no'
+                    }
+                 },
+                { :contest => :districtct_roberts,
+                  :choices => 
+                    { [46, 13] => 'yes',
+                      [47, 13] => 'no'
                     }
                  },
                 { :contest => :districtct_nortwick,
@@ -283,19 +290,43 @@ class PBScorerTest < Test::Unit::TestCase
     end
   end
   
-  context "with score3.yml" do
-    setup do 
+  def setup_score_test filename
       @scorer = PBScorer.new
-      @scorer.load_raw_data(File.dirname(__FILE__) + "/fixtures/scores3.yml")
+      @scorer.load_raw_data(File.dirname(__FILE__) + filename)
       @scorer.ballot_style_map = Ballot_style_map2
+  end
+  
+  def run_score_test
+    assert_nothing_raised do
+      @scorer.process_all_records
+    end
+    puts
+    puts "Total Scanned count: #{@scorer.total_count}"
+    puts "Successful scan count: #{@scorer.success_count}"
+    puts "Failed Scan count: #{@scorer.failed_count}"
+    puts
+    puts "Tabulation count: #{@scorer.tabulation_count}"
+    puts "Tabulation failed #{@scorer.tabulation_failed}"
+    puts @scorer.results.csv
+  end
+  
+  context "with leon.yml" do
+    setup do 
+      setup_score_test "/fixtures/leon.yml"
     end
         
-    should "process all records without exception" do
-      assert_nothing_raised do
-        @scorer.process_all_records
-      end
-      puts @scorer.results.csv
+    should "process all leon records without exception" do
+      run_score_test
     end
   end
-
+  
+  context "make a list of all unique bar codes in leon.yml" do
+    setup do 
+      setup_score_test "/fixtures/leon.yml"
+    end
+    
+    should "make a list of unique barcodes" do
+      puts @scorer.barcode_csv
+    end
+  end
 end

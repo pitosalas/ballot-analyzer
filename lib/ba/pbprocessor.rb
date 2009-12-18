@@ -59,8 +59,7 @@ Val_params = {
     @params = inparams
     
     @analyzer = PbAnalyzer2.new(@upstream)
-#    @analyzer.diagnostics :trace
-    @analyzer.diagnostics :intermediate_images
+#    @analyzer.diagnostics :intermediate_images
   end
 
 #
@@ -100,7 +99,7 @@ Val_params = {
 #
   def deduce_ballot_style(barcode_vect)
     barcode_value = compute_barcode(barcode_vect)
-    bitfield(15, 18, barcode_value)
+    bitfield(16, 16, barcode_value) unless barcode_value.nil?
   end
  
 #
@@ -127,7 +126,7 @@ Val_params = {
       @dir_walker = DirectoryWalker.new
       if levels == :single_level
         @dir_walker.walk_directory @params[:path] do |fname|
-          process_single_file fname
+          process_single_file fname.expand_path.to_s
         end
       elsif levels == :two_level
         @dir_walker.walk_2level_path @params[:path] do |fname|
@@ -148,7 +147,7 @@ Val_params = {
     @filename = fname
     @upstream.stream("ballot #{fname}")
     begin
-      @analyzer.analyze_ballot_image fname, @target_dpi, @max_skew, @result, @upstream
+      @analyzer.analyze_ballot_image fname, @target_dpi, @result, @upstream
       @result[:ballot_style] = deduce_ballot_style(@result[:raw_barcode])
       @upstream.stream("success")
       @result[:status] = :success

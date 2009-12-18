@@ -31,6 +31,7 @@ require File.dirname(__FILE__) + '/test_helper'
 require 'ba/iadsl'
 require 'ba/pbcommonanalyzer'
 require 'ba/pbanalyzer2'
+require 'ba/bautils'
 
 class PbAbalyzer2Test < Test::Unit::TestCase
 
@@ -48,18 +49,18 @@ class PbAbalyzer2Test < Test::Unit::TestCase
       assert true
     end
     
-    should "correctly convert between ballot coodiantes and inches" do
+    should "correctly convert between ballot coodiantes and ballot fractional coord" do
       @bi.target_dpi = 200
-      assert_equal BPoint.new(0.5, 2.5), @bi.point_b2i(BPoint.new(2, 10)) 
+      assert_equal BPoint.new(1.0, 1.0), @bi.point_b2f(BPoint.new(33, 52)) 
     end
     
     should "processing an image should always return " do
       fname = File.dirname(__FILE__) + "/fixtures/test_ballot_1.tif"
       @result = {:filename => fname }
       upstream = flexmock("upstream")
-      upstream.should_receive(:ann_offset)
+      upstream.should_receive(:ann_offset, :ann_rect)
       upstream.should_receive(:ann_point)
-      upstream.should_receive(:info).once    
+      upstream.should_receive(:info)    
       @bi.analyze_ballot_image fname, 200, @result, upstream
       assert @result.has_key? :raw_barcode
     end
@@ -79,21 +80,21 @@ class PbAbalyzer2Test < Test::Unit::TestCase
     end
     
     should "Find a reasonable origin and angle" do
+#      @bi.diagnostics :intermediate_images
       @bi.locate_ballot
-      assert_between 0.0, 0.4, @bi.ballot_angle
-      assert_between 0.0, 20.0, @bi.ballot_origin.distance(BPoint.new(19, 19))
+      assert_between 0.0, 0.4, @bi.angle
+      assert_between 0.0, 20.0, @bi.top_left.distance(BPoint.new(19, 19))
     end
     
     should "Find the voted ovals" do
       @bi.locate_ballot
       @bi.raw_marked_votes = []
       @bi.analyze_vote_ovals
-      puts @bi.raw_marked_votes.inspect
     end
 
   end
   
-  context "Working on test_ballot_2" do
+  context "Working on test balot2" do
     setup do
       upstream = flexmock("upstream")
       upstream.should_receive(:ann_offset, :ann_rect)
@@ -103,21 +104,21 @@ class PbAbalyzer2Test < Test::Unit::TestCase
       assert upstream.ann_offset(1,2).nil?
       @bi = PbAnalyzer2.new(upstream)
       @bi.target_dpi = 200
+#      @bi.diagnostics :intermediate_images
       filename = File.dirname(__FILE__) + "/fixtures/test_ballot_2.tif"
       @bi.open_ballot_image :ballot, filename, @bi.target_dpi
     end
     
     should "Find a reasonable origin and angle" do
       @bi.locate_ballot
-      assert_between 0.3, 0.7, @bi.ballot_angle
-      assert_between 0.0, 20.0, @bi.ballot_origin.distance(BPoint.new(19, 90))
+      assert_between 0.0, 0.7, @bi.angle
+      assert_between 0.0, 20.0, @bi.top_left.distance(BPoint.new(19, 18))
     end
     
     should "Find the voted ovals" do
       @bi.locate_ballot
       @bi.raw_marked_votes = []
       @bi.analyze_vote_ovals
-      puts @bi.raw_marked_votes.inspect
     end    
   end
   
@@ -147,23 +148,57 @@ class PbAbalyzer2Test < Test::Unit::TestCase
   def common_gen_ann_image name
     @bi.locate_ballot
     @bi.raw_marked_votes = []
+    @bi.raw_barcode = []
     @bi.analyze_vote_ovals
+    @bi.analyze_barcode
     @upstream.ann_done(name)    
   end
   
-  context "Test annotations on test ballots" do
+  context "Analyze list of test ballots" do
     setup do
-      @list = [["/fixtures/test_ballot_1.tif", "b1"],
-               ["/fixtures/test_ballot_2.tif", "b2"]]
+      @list = [["/fixtures/test_ballot_1.tif", "b1", [0, 1, 16, 26, 28, 29, 32, 33], [[32, 2]]],
+               ["/fixtures/test_ballot_2.tif", "b2", [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33], []],
+               ["/fixtures/test_ballot_3.tif", "b3", [0, 1, 16, 26, 28, 29, 32, 33],[[30, 2]] ],
+               ["/fixtures/test_ballot_4.tif", "b4", [0, 1, 16, 26, 29, 33], [[36, 2]] ],
+               ["/fixtures/test_ballot_5.tif", "b5", [0, 1, 16, 26, 28, 29, 32, 33], [[26, 2]]],
+               ["/fixtures/test_ballot_069.tif", "069", [0, 1, 16, 26, 28, 29, 32, 33], [[38, 2]]],
+               ["/fixtures/test_ballot_124.tif", "124", [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33], []],
+               ["/fixtures/test_ballot_423.tif", "423", [0, 1, 16, 26, 28, 29, 32, 33],[[30, 2]]],
+               ["/fixtures/test_ballot_409.tif", "409", [0, 1, 16, 26, 28, 29, 32, 33], [[30, 2]]],
+               ["/fixtures/test_ballot_002.tif", "002", [0, 2, 3, 4, 5, 7, 8, 9, 10, 14, 15, 20, 24, 26, 27, 30, 33], []]               
+               ]
     end
     
-    should "generate annotated image" do
+    should "should match expected results" do
       @list.each do
-        |filename, id|
+        |filename, id, correct_barcode, correct_votes|
           common_setup filename, id
           common_gen_ann_image id
+          assert_equal correct_barcode, @bi.raw_barcode, "#{id}: incorrect barcode: "
+          assert_equal correct_votes, @bi.raw_marked_votes, "##{id}: incorrect votes: "
+          assert_nothing_raised  "#{id}: sanity check failed" do
+            @bi.sanity_check
+          end          
+      end
+    end
+    
+    should "annotate  test_ballot_3" do
+      common_setup "/fixtures/test_ballot_3.tif", "test_ballot_3"
+      common_gen_ann_image "test_ballot_3"
+      assert_equal [0, 1, 16, 26, 28, 29, 32, 33], @bi.raw_barcode
+      assert_equal [[30, 2]], @bi.raw_marked_votes
+      assert_nothing_raised do
+        @bi.sanity_check
       end
     end
   end
-
+  
+  context "Working on ballot under microscope" do
+    should "analyze and annotate it" do
+      common_setup "/fixtures/test_ballot_3.tif", "microscope"
+      @bi.diagnostics :intermediate_images
+      common_gen_ann_image "microscope"
+      puts "microscope: barcode: #{@bi.raw_barcode.inspect}, votes: #{@bi.raw_marked_votes.inspect}"      
+    end
+  end
 end

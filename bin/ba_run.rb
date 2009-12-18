@@ -52,6 +52,7 @@ class BARun
                     ["-u", "--upstream", GetoptLong::NO_ARGUMENT],
                     ["-r", "--result", GetoptLong::REQUIRED_ARGUMENT],
                     ["-f", "--file", GetoptLong::REQUIRED_ARGUMENT], 
+                    ["-b", "--benchmark", GetoptLong::NO_ARGUMENT],
                     ["-d", "--directory", GetoptLong::REQUIRED_ARGUMENT ])
     
     @action = :none
@@ -65,28 +66,30 @@ class BARun
           when "-h"
             puts "Usage: ha! Read the code, silly :)"
             @action = :nothing
-          break
-            when "-t"
+            break
+          when "-t"
             @action = :test
           when "-v"
             puts "Version 0.0"
             @action = :nothing
             break
           when "-d", "-f"
-          if @style == :none
-            @action = :run
-            @style = opt == "-d" ? :directory : :file
-            @path = arg
-          else
-            puts "Cannot specify more than one of -d and -f"
-          end
+            if @style == :none
+              @action = :run
+              @style = opt == "-d" ? :directory : :file
+              @path = arg
+            else
+              puts "Cannot specify more than one of -d and -f"
+            end
+          when "-b"
+            @benchenabled = true
+            @acton = :run
           when "-u"
             @action = :run
-            @upstream = true
+            @upenabled = true
           when "-l"
             @logging = true
           when "-r"
-            puts arg
             @result = arg
         end
       end
@@ -119,7 +122,7 @@ def do_test_mode
 end
 
 def do_run_mode
-  inparams = {   :upstream => UpstreamReporter.new(@upstream, @logging, false),
+  inparams = {   :upstream => UpstreamReporter.new(@upenabled, @logging, false),
                  :target_dpi => 200,
                  :max_skew => 0.08,
                  :path_style => @style,
@@ -127,12 +130,22 @@ def do_run_mode
   
   outparams = []
   processor = PbProcessor.new inparams, outparams
-  processor.process
+
+  if @benchenabled
+    require 'benchmark'
+    Benchmark.bmbm(50) do |x|
+      x.report("processing ballots") { 
+        processor.process
+        }
+    end
+  else
+    processor.process
+  end
+  
   if @logging
-    puts outparams.to_yaml if @logging
+    puts outparams.to_yaml
   end
   if @result != :none
-    puts @result
     File.open(@result, "w") { |f| f << outparams.to_yaml }
   end
 end
@@ -141,3 +154,4 @@ end
 ba_run = BARun.new
 ba_run.parse_commandline
 ba_run.dispatch
+puts "complete."

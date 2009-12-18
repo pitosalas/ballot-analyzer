@@ -30,12 +30,14 @@
 require 'pathname'
 
 #
+# Handy Error Classes
+#
+class DeprecatedError < StandardError; end
+
+#
 # Directory Walker, provides various fancy ways of traversing files in directories
 #
 class DirectoryWalker
-  
-  def initialize
-  end
   
   def walk_directory directory
     Dir.foreach(Pathname.new(directory)) do |l1_name|
